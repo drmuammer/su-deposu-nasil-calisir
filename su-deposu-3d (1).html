@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Su Deposu • İnteraktif 3D Şema</title>
+<meta name="description" content="Su deposunun bölümleri ve elemanları — havuzluk, manevra odası, tepe savak, dip savak, dolma ve taşma tahliyeleri — interaktif 3 boyutlu animasyonlu sunum.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg-0: #07101c;
+    --bg-1: #0d1d2e;
+    --bg-2: #142a3f;
+    --line: rgba(120, 200, 255, 0.14);
+    --line-strong: rgba(120, 200, 255, 0.32);
+    --ink: #eaf1f8;
+    --ink-mute: #8aa3bc;
+    --ink-dim: #5d7591;
+    --accent: #38d6ff;
+    --accent-warm: #ffb547;
+    --accent-water: #4fb5ff;
+    --accent-red: #ff6b6b;
+    --accent-green: #6bd47b;
+    --shadow-1: 0 1px 0 rgba(255,255,255,0.05) inset, 0 24px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg-0);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Decorative blueprint grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: -1px -1px;
+    pointer-events: none;
+    z-index: 1;
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 30%, transparent 90%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 30%, transparent 90%);
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 50% 40% at 75% 20%, rgba(56, 214, 255, 0.10), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 15% 90%, rgba(255, 181, 71, 0.07), transparent 60%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  #scene-host {
+    position: fixed; inset: 0;
+    z-index: 2;
+  }
+
+  canvas { display: block; outline: none; }
+
+  /* ----- Top header ----- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px;
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+  .brand {
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .brand .mark {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em;
+    color: var(--accent);
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: rgba(56, 214, 255, 0.05);
+  }
+  .brand .mark .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .brand h1 {
+    font-family: 'Bricolage Grotesque', serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .brand h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-align: right;
+    line-height: 1.6;
+  }
+  .meta strong { color: var(--ink); font-weight: 500; }
+
+  /* ----- Side panel ----- */
+  .panel {
+    position: fixed;
+    top: 80px; left: 28px;
+    width: 360px;
+    max-width: calc(100vw - 56px);
+    z-index: 10;
+    background: linear-gradient(180deg, rgba(13, 29, 46, 0.92), rgba(7, 16, 28, 0.92));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    box-shadow: var(--shadow-1);
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .panel-header .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--bg-0);
+    background: var(--accent);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    min-width: 44px;
+    text-align: center;
+  }
+  .panel-header h2 {
+    font-family: 'Bricolage Grotesque', serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .panel .role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 12px;
+  }
+  .panel .desc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-mute);
+    margin-bottom: 16px;
+  }
+  .panel .desc strong { color: var(--ink); font-weight: 500; }
+  .panel .specs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    border-top: 1px dashed var(--line-strong);
+    padding-top: 14px;
+  }
+  .panel .specs .spec {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .panel .specs .spec .k {
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 2px;
+  }
+  .panel .specs .spec .v {
+    font-size: 13px; color: var(--ink);
+  }
+
+  /* ----- Component list ----- */
+  .components {
+    position: fixed;
+    bottom: 28px; left: 28px;
+    z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+    background: linear-gradient(180deg, rgba(13, 29, 46, 0.88), rgba(7, 16, 28, 0.88));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    padding: 12px;
+    width: 360px;
+    max-width: calc(100vw - 56px);
+  }
+  .components .title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-dim);
+    padding: 4px 8px 8px;
+  }
+  .components button {
+    all: unset;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    color: var(--ink-mute);
+    transition: background 0.2s, color 0.2s;
+    border: 1px solid transparent;
+  }
+  .components button:hover { background: rgba(56, 214, 255, 0.07); color: var(--ink); }
+  .components button.active {
+    background: rgba(56, 214, 255, 0.10);
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .components button .swatch {
+    width: 10px; height: 10px; border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .components button .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    width: 22px;
+  }
+  .components button.active .num { color: var(--accent); }
+
+  /* ----- Bottom-right controls ----- */
+  .controls {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    z-index: 10;
+    display: flex; flex-direction: column; gap: 10px;
+    align-items: flex-end;
+  }
+  .control-group {
+    display: flex; gap: 6px;
+    background: linear-gradient(180deg, rgba(13, 29, 46, 0.88), rgba(7, 16, 28, 0.88));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 6px;
+  }
+  .control-group button {
+    all: unset;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    padding: 9px 14px;
+    border-radius: 8px;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .control-group button:hover { background: rgba(56, 214, 255, 0.08); color: var(--ink); }
+  .control-group button.primary {
+    background: var(--accent);
+    color: var(--bg-0);
+    font-weight: 500;
+  }
+  .control-group button.primary:hover { background: #5fe2ff; color: var(--bg-0); }
+  .control-group button .ico {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .water-gauge {
+    background: linear-gradient(180deg, rgba(13, 29, 46, 0.88), rgba(7, 16, 28, 0.88));
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+  }
+  .water-gauge .label { letter-spacing: 0.14em; text-transform: uppercase; font-size: 9.5px; color: var(--ink-dim); }
+  .water-gauge .value { color: var(--accent-water); font-weight: 500; font-size: 13px; min-width: 40px; }
+  .water-gauge .bar {
+    width: 80px; height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px; overflow: hidden;
+    position: relative;
+  }
+  .water-gauge .bar-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--accent-water), var(--accent));
+    transition: width 0.4s ease;
+  }
+
+  /* ----- 3D labels (CSS2D) ----- */
+  .label3d {
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+  }
+  .label3d .pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 5px;
+    background: rgba(7, 16, 28, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11.5px;
+    color: var(--ink);
+    white-space: nowrap;
+    transition: all 0.2s;
+    transform: translate(8px, -50%);
+  }
+  .label3d .pin .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    background: var(--accent);
+    color: var(--bg-0);
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 500;
+  }
+  .label3d:hover .pin { background: rgba(56, 214, 255, 0.18); border-color: var(--accent); }
+  .label3d.active .pin {
+    background: var(--accent); color: var(--bg-0); border-color: var(--accent);
+    box-shadow: 0 0 0 6px rgba(56, 214, 255, 0.18);
+  }
+  .label3d.active .pin .num { background: var(--bg-0); color: var(--accent); }
+
+  /* ----- Loader ----- */
+  .loader {
+    position: fixed; inset: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    background: var(--bg-0);
+    transition: opacity 0.6s ease;
+  }
+  .loader.hidden { opacity: 0; pointer-events: none; }
+  .loader .ring {
+    width: 48px; height: 48px;
+    border: 2px solid rgba(56, 214, 255, 0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader .text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+  }
+
+  /* ----- Mobile adjustments ----- */
+  @media (max-width: 768px) {
+    .topbar { padding: 14px 16px; }
+    .brand h1 { font-size: 17px; }
+    .brand .mark { font-size: 10px; }
+    .meta { display: none; }
+    .panel { top: 70px; left: 16px; right: 16px; width: auto; padding: 16px; }
+    .panel-header h2 { font-size: 17px; }
+    .components { left: 16px; right: 16px; bottom: 16px; width: auto; }
+    .components button { font-size: 12.5px; padding: 8px 10px; }
+    .controls { bottom: auto; top: 240px; right: 16px; }
+    .control-group button { padding: 8px 12px; font-size: 12px; }
+    .water-gauge { display: none; }
+  }
+</style>
+
+<!-- Three.js as ES modules with import map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="ring"></div>
+  <div class="text">Sahne Hazırlanıyor</div>
+</div>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark"><span class="dot"></span>Komparatör</span>
+    <h1>Su Deposu <em>İnteraktif Şema</em></h1>
+  </div>
+  <div class="meta">
+    <strong>Muammer Beslen</strong><br>
+    Depo Bölümleri • 3D Görselleştirme
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <div class="panel-header">
+    <span class="num" id="panel-num">00</span>
+    <h2 id="panel-title">Depo Şeması</h2>
+  </div>
+  <div class="role" id="panel-role">Genel Bakış</div>
+  <div class="desc" id="panel-desc">
+    Bir içme suyu deposu, şebekeye iletilecek suyun toplandığı <strong>havuzluk</strong> ile tüm vana ve kontrol elemanlarının bulunduğu <strong>manevra odasından</strong> oluşur. Aşağıdaki listeden ya da sahnedeki numaralı etiketlerden bir bölüm seçerek incelemeye başlayabilirsiniz.
+  </div>
+  <div class="specs">
+    <div class="spec"><div class="k">Bileşen</div><div class="v" id="spec-1">8 adet</div></div>
+    <div class="spec"><div class="k">Mod</div><div class="v" id="spec-2">Etkileşimli</div></div>
+  </div>
+</div>
+
+<div class="components" id="components">
+  <div class="title">Bölümler ve Elemanlar</div>
+  <!-- Buttons inserted by JS -->
+</div>
+
+<div class="controls">
+  <div class="water-gauge">
+    <div>
+      <div class="label">Su Seviyesi</div>
+      <div class="bar"><div class="bar-fill" id="bar-fill" style="width: 60%"></div></div>
+    </div>
+    <div class="value" id="gauge-value">60%</div>
+  </div>
+  <div class="control-group">
+    <button id="btn-fill" title="Depoyu doldur"><span class="ico">▲</span> Doldur</button>
+    <button id="btn-drain" title="Depoyu boşalt"><span class="ico">▼</span> Boşalt</button>
+  </div>
+  <div class="control-group">
+    <button id="btn-rotate" title="Otomatik döndür"><span class="ico">↻</span> Döndür</button>
+    <button id="btn-cutaway" title="Kesit görünümü"><span class="ico">◫</span> Kesit</button>
+    <button id="btn-reset" class="primary" title="Görünümü sıfırla"><span class="ico">⌂</span> Sıfırla</button>
+  </div>
+</div>
+
+<div id="scene-host"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// =====================================================================
+// Component data — Turkish descriptions of every part of the depo
+// (Updated for the typical Turkish two-chamber depo layout)
+// =====================================================================
+const COMPONENTS = {
+  havuzluk: {
+    n: '01', title: 'Havuzluk Bölmeleri',
+    role: 'İki Bölmeli Su Haznesi',
+    color: '#4fb5ff',
+    desc: 'Türkiye\'deki içme suyu depoları çoğunlukla <strong>iki ayrı bölmeden</strong> oluşur. Bir bölme bakım ya da temizlik için boşaltılırken diğeri şebekeyi beslemeye devam eder; böylece servis kesintisi yaşanmaz. Her iki bölme de su geçirimsiz <strong>betonarme</strong> yapıdadır ve tabanına doğru hafif bir eğimle inşa edilir.',
+    specs: [['Bölme Sayısı', '2 adet'], ['Yapı', 'Betonarme']]
+  },
+  manevra: {
+    n: '02', title: 'Manevra Odası',
+    role: 'Vana ve Kontrol Bölmesi',
+    color: '#ffb547',
+    desc: '<strong>Manevra Odası</strong>, deponun tüm vanalarının, sayaç ve kontrol elemanlarının bulunduğu kuru bölmedir. Genellikle havuzlukların önüne bitişik biçimde inşa edilir. Buradan her iki bölmenin <strong>ayrı ayrı dolması, boşaltılması ve şebekeye su verilmesi</strong> kontrol edilir.',
+    specs: [['Erişim', 'Kapı + merdiven'], ['İşlev', 'Kontrol']]
+  },
+  dolma: {
+    n: '03', title: 'Dolma Hatları',
+    role: 'Giriş Boruları (×2)',
+    color: '#4fb5ff',
+    desc: 'Her havuzluk bölmesinin <strong>kendi dolma hattı ve dolma vanası</strong> bulunur. Böylece bir bölme dolarken diğeri kapatılabilir. Kaptajdan veya isale hattından gelen su, manevra odasındaki vanalardan geçerek bölmelerin üst seviyesinden tahliye edilir.',
+    specs: [['Adet', '2 (her bölmeye 1)'], ['Renk Kodu', 'Mavi']]
+  },
+  cikis: {
+    n: '04', title: 'Çıkış Hatları',
+    role: 'Şebekeye Su Verme (×2)',
+    color: '#4fb5ff',
+    desc: 'Her bölmeden ayrı bir <strong>çıkış (isale) hattı</strong> ile şebekeye su verilir. Bölmelerin biri serviste değilken diğerinin sürekli su göndermesi bu sayede mümkündür. Çıkış noktaları, çökeltinin gönderilmemesi için <strong>taban kotuna yakın</strong> ama tabanın hemen üstünde seçilir.',
+    specs: [['Adet', '2 (her bölmeden 1)'], ['Konum', 'Alt seviye']]
+  },
+  tepeSavak: {
+    n: '05', title: 'Tepe Savaklar',
+    role: 'Üst Düzey Taşma Eşikleri (×2)',
+    color: '#6bd47b',
+    desc: 'Her iki bölmenin de kendi <strong>tepe savağı</strong> vardır. Su seviyesi tasarım üst kotunu aştığında bu eşikten <strong>kontrollü biçimde taşar</strong>. Taşan su manevra odasındaki ortak <strong>taşma tahliye hattına</strong> yönlendirilir; böylece havuz duvarı ve kapağı yüksek su basıncına maruz kalmaz.',
+    specs: [['Adet', '2 (her bölmede 1)'], ['Konum', 'Üst kot']]
+  },
+  dipSavak: {
+    n: '06', title: 'Dip Savaklar',
+    role: 'Dip Boşaltma Hatları (×2)',
+    color: '#ff6b6b',
+    desc: 'Tabanda biriken çamur, kireç ve çökeltileri tahliye eden hatlardır. Her iki bölmenin de <strong>kendi dip savak vanası</strong> vardır. Yıllık bakımda her bölme sırayla açılarak boşaltılır, tabandaki birikinti dışarı atılır ve bölme klorla dezenfekte edilir.',
+    specs: [['Adet', '2 (her bölmede 1)'], ['Konum', 'Taban kotu']]
+  },
+  tasma: {
+    n: '07', title: 'Taşma Tahliyesi',
+    role: 'Aşırı Yükselme Çıkışı (Ortak)',
+    color: '#6bd47b',
+    desc: 'Her iki bölmenin tepe savaklarından dökülen suyu manevra odasından <strong>tek bir hatla</strong> dışarı, çoğunlukla bir menfeze veya dereye boşaltır. <strong>Su seviyesi tepe kotuna ulaştığında otomatik devreye girer</strong>; arıza ya da seviye sensörü hatası durumunda deponun emniyetini sağlar. Ucu açık ve kafesli olur.',
+    specs: [['Adet', '1 (ortak)'], ['Tip', 'Serbest akış']]
+  },
+  vanalar: {
+    n: '08', title: 'Vanalar',
+    role: 'Akış Kontrol Elemanları',
+    color: '#ff6b6b',
+    desc: 'Manevra odasında her hat üzerinde ayrı bir vana vardır: <strong>2 dolma + 2 çıkış + 2 dip savak</strong> = en az 6 vana. Bu vanalar sayesinde bölmeler birbirinden bağımsız çalıştırılabilir. Genellikle <strong>kelebek</strong> ya da <strong>sürgülü</strong> tipte seçilir; flanşlı bağlantılarla boruya monte edilir.',
+    specs: [['Tip', 'Kelebek/Sürgülü'], ['Adet', '6+ adet']]
+  }
+};
+
+const initial = {
+  n: '00', title: 'Depo Şeması',
+  role: 'Genel Bakış',
+  desc: 'Türkiye\'deki tipik bir içme suyu deposu; <strong>iki ayrı havuzluk bölmesi</strong> ile bunların önündeki <strong>manevra odasından</strong> oluşur. Aşağıdaki listeden veya sahnedeki numaralı etiketlerden bir bölüm seçerek incelemeye başlayabilirsiniz. Sağ alttaki <strong>Doldur</strong> ile su seviyesini yükseltin, tepe kotuna gelince taşma tahliyesinden suyun aktığını göreceksiniz.',
+  specs: [['Bileşen', '8 grup'], ['Mod', 'Etkileşimli']]
+};
+
+// =====================================================================
+// Three.js scene setup
+// =====================================================================
+const host = document.getElementById('scene-host');
+
+const scene = new THREE.Scene();
+scene.background = null;
+scene.fog = new THREE.Fog(0x07101c, 32, 70);
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(15, 12, 19);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+host.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.style.position = 'fixed';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+labelRenderer.domElement.style.zIndex = '5';
+document.body.appendChild(labelRenderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 2, -1);
+controls.minDistance = 9;
+controls.maxDistance = 45;
+controls.maxPolarAngle = Math.PI / 2.05;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+
+// =====================================================================
+// Lighting
+// =====================================================================
+scene.add(new THREE.AmbientLight(0xb6cfe6, 0.45));
+
+const hemi = new THREE.HemisphereLight(0xa6d4ff, 0x1a2030, 0.45);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+key.position.set(14, 18, 12);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 60;
+key.shadow.camera.left = -22;
+key.shadow.camera.right = 22;
+key.shadow.camera.top = 22;
+key.shadow.camera.bottom = -22;
+key.shadow.bias = -0.0005;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x4fb5ff, 0.6);
+rim.position.set(-12, 6, -10);
+scene.add(rim);
+
+// =====================================================================
+// Ground
+// =====================================================================
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(45, 64),
+  new THREE.MeshStandardMaterial({ color: 0x0d1d2e, roughness: 0.95, metalness: 0 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.001;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(45, 45, 0x1f4163, 0x142a3f);
+grid.material.opacity = 0.4;
+grid.material.transparent = true;
+scene.add(grid);
+
+// =====================================================================
+// Materials
+// =====================================================================
+const matConcrete = new THREE.MeshStandardMaterial({
+  color: 0xc9d4dd, roughness: 0.85, metalness: 0.05,
+  transparent: true, opacity: 0.16, side: THREE.DoubleSide,
+  depthWrite: false,
+});
+const matConcreteSolid = new THREE.MeshStandardMaterial({
+  color: 0xb8c5d1, roughness: 0.9, metalness: 0.05,
+});
+const matEdge = new THREE.LineBasicMaterial({ color: 0xeaf1f8, transparent: true, opacity: 0.55 });
+const matWater = new THREE.MeshStandardMaterial({
+  color: 0x4fb5ff,
+  roughness: 0.15, metalness: 0.1,
+  transparent: true, opacity: 0.55,
+  emissive: 0x0a4570, emissiveIntensity: 0.4,
+});
+const matPipeBlue = new THREE.MeshStandardMaterial({ color: 0x2c7fbf, roughness: 0.5, metalness: 0.4 });
+const matPipeRed = new THREE.MeshStandardMaterial({ color: 0xd14848, roughness: 0.5, metalness: 0.4 });
+const matPipeGreen = new THREE.MeshStandardMaterial({ color: 0x4cb060, roughness: 0.5, metalness: 0.4 });
+const matValveBody = new THREE.MeshStandardMaterial({ color: 0xb87a2c, roughness: 0.45, metalness: 0.6 });
+const matValveWheel = new THREE.MeshStandardMaterial({ color: 0xd14848, roughness: 0.4, metalness: 0.5 });
+const matStream = new THREE.MeshStandardMaterial({
+  color: 0x6cc6ff,
+  emissive: 0x2299dd,
+  emissiveIntensity: 0.4,
+  transparent: true, opacity: 0.75,
+  side: THREE.DoubleSide, depthWrite: false,
+  roughness: 0.3, metalness: 0.0,
+});
+
+// =====================================================================
+// Helpers
+// =====================================================================
+function buildHollowBox(width, depth, height, opts = {}) {
+  const t = opts.thickness || 0.18;
+  const wallMat = opts.wallMat || matConcrete;
+  const showFront = opts.showFront !== false;
+  const showBack  = opts.showBack  !== false;
+  const showLeft  = opts.showLeft  !== false;
+  const showRight = opts.showRight !== false;
+  const showFloor = opts.showFloor !== false;
+  const showRoof  = opts.showRoof  !== false;
+
+  const group = new THREE.Group();
+  const w = width, d = depth, h = height;
+
+  if (showFloor) {
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), matConcreteSolid);
+    floor.position.y = t / 2;
+    floor.receiveShadow = true;
+    floor.castShadow = true;
+    group.add(floor);
+  }
+  if (showRoof) {
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), wallMat);
+    roof.position.y = h - t / 2;
+    group.add(roof);
+  }
+  if (showBack) {
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), wallMat);
+    back.position.set(0, h / 2, -d / 2 + t / 2);
+    group.add(back);
+  }
+  if (showFront) {
+    const front = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), wallMat);
+    front.position.set(0, h / 2, d / 2 - t / 2);
+    group.add(front);
+  }
+  if (showLeft) {
+    const left = new THREE.Mesh(new THREE.BoxGeometry(t, h, d - 2 * t), wallMat);
+    left.position.set(-w / 2 + t / 2, h / 2, 0);
+    group.add(left);
+  }
+  if (showRight) {
+    const right = new THREE.Mesh(new THREE.BoxGeometry(t, h, d - 2 * t), wallMat);
+    right.position.set(w / 2 - t / 2, h / 2, 0);
+    group.add(right);
+  }
+
+  // Edge wireframe for definition
+  const edgesGeom = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+  const edges = new THREE.LineSegments(edgesGeom, matEdge);
+  edges.position.y = h / 2;
+  group.add(edges);
+
+  return group;
+}
+
+// Pipe between two arbitrary 3D points
+function pipeBetween(p1, p2, mat, radius = 0.13) {
+  const dir = new THREE.Vector3().subVectors(p2, p1);
+  const len = dir.length();
+  const geo = new THREE.CylinderGeometry(radius, radius, len, 20, 1, false);
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = true;
+  // CylinderGeometry default is Y-up; rotate to align with dir
+  const up = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+  m.quaternion.copy(q);
+  m.position.copy(p1).addScaledVector(dir, 0.5);
+  return m;
+}
+
+function elbow(p, mat, radius = 0.16) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 16, 12), mat);
+  m.position.copy(p);
+  m.castShadow = true;
+  return m;
+}
+
+function makeFlange(p, dir, mat, radius = 0.22) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.06, 20), mat);
+  const up = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+  m.quaternion.copy(q);
+  m.position.copy(p);
+  m.castShadow = true;
+  return m;
+}
+
+function makeValve(orientationAxis = 'y') {
+  // Vana group; orientationAxis = axis along which the pipe runs
+  // 'y' = pipe vertical; 'x' = pipe along X; 'z' = pipe along Z
+  // Wheel is always perpendicular to pipe axis; we'll orient wheel "up"
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.5, 16), matValveBody);
+  body.castShadow = true;
+  g.add(body);
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, 0.45, 12),
+    new THREE.MeshStandardMaterial({ color: 0x9aa3a8, metalness: 0.7, roughness: 0.3 })
+  );
+  stem.position.y = 0.4;
+  g.add(stem);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.035, 12, 24), matValveWheel);
+  wheel.rotation.x = Math.PI / 2;
+  wheel.position.y = 0.62;
+  wheel.castShadow = true;
+  g.add(wheel);
+  for (let i = 0; i < 4; i++) {
+    const spoke = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.016, 0.016, 0.42, 8),
+      matValveWheel
+    );
+    spoke.rotation.z = Math.PI / 2;
+    spoke.rotation.y = (i * Math.PI) / 2;
+    spoke.position.y = 0.62;
+    g.add(spoke);
+  }
+
+  // Re-orient: by default pipe is along Y (body is along Y axis already). For 'x' or 'z',
+  // rotate the whole group.
+  if (orientationAxis === 'x') {
+    g.rotation.z = Math.PI / 2;
+  } else if (orientationAxis === 'z') {
+    g.rotation.x = Math.PI / 2;
+  }
+  return g;
+}
+
+// =====================================================================
+// Build the depo
+// =====================================================================
+const root = new THREE.Group();
+scene.add(root);
+
+// Geometry parameters
+const HAVUZ_W = 5.0, HAVUZ_D = 5.0, HAVUZ_H = 4.4;
+const MANEV_W = 10.0, MANEV_D = 4.0, MANEV_H = 4.4;
+const WALL_T = 0.18;
+
+// Centers
+const cA = new THREE.Vector3(-2.5, 0, -2.5);
+const cB = new THREE.Vector3( 2.5, 0, -2.5);
+const cM = new THREE.Vector3( 0,   0,  2.0);
+
+// Weir top height (where water spills over from chamber to manevra)
+const WEIR_Y = 3.6;
+// Maximum water level (just below weir, in chamber)
+const WATER_MAX = WEIR_Y - 0.05;
+
+// --- Havuz A ---
+const havuzA = buildHollowBox(HAVUZ_W, HAVUZ_D, HAVUZ_H, {
+  thickness: WALL_T, showRoof: false,
+});
+havuzA.position.copy(cA);
+havuzA.userData.id = 'havuzluk';
+root.add(havuzA);
+
+// --- Havuz B ---
+const havuzB = buildHollowBox(HAVUZ_W, HAVUZ_D, HAVUZ_H, {
+  thickness: WALL_T, showRoof: false,
+});
+havuzB.position.copy(cB);
+havuzB.userData.id = 'havuzluk';
+root.add(havuzB);
+
+// --- Manevra Odası (front, wider) ---
+const manev = buildHollowBox(MANEV_W, MANEV_D, MANEV_H, {
+  thickness: WALL_T, showRoof: true,
+});
+manev.position.copy(cM);
+manev.userData.id = 'manevra';
+root.add(manev);
+
+// Door on manevra front wall
+const doorMat = new THREE.MeshStandardMaterial({ color: 0x7a4a2c, roughness: 0.7, metalness: 0.2 });
+const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 0.05), doorMat);
+door.position.set(-2.0, 0.9, cM.z + MANEV_D / 2 + 0.01);
+root.add(door);
+
+// =====================================================================
+// Water in each chamber (animated)
+// =====================================================================
+const waterAGeo = new THREE.BoxGeometry(HAVUZ_W - 2 * WALL_T - 0.04, 1, HAVUZ_D - 2 * WALL_T - 0.04);
+const waterA = new THREE.Mesh(waterAGeo, matWater);
+waterA.position.set(cA.x, 0, cA.z);
+waterA.userData.id = 'havuzluk';
+root.add(waterA);
+
+const waterB = new THREE.Mesh(waterAGeo.clone(), matWater);
+waterB.position.set(cB.x, 0, cB.z);
+waterB.userData.id = 'havuzluk';
+root.add(waterB);
+
+let waterLevel = 0.55;
+let waterTarget = 0.55;
+let manevraFloorWater = 0; // amount of water collected in manevra during overflow
+
+// Debug hook (also useful for educational demos / external scripting)
+window.depo3d = {
+  setWaterLevel: (l) => { waterLevel = waterTarget = Math.max(0, Math.min(1.05, l)); },
+  fill:  () => { waterTarget = 1.05; },
+  drain: () => { waterTarget = 0.05; },
+};
+
+function updateWater() {
+  // Cap at 1.0 (water can't exceed weir+small overflow region)
+  const lvl = Math.min(waterLevel, 1.02);
+  const h = Math.max(0.001, lvl * WATER_MAX);
+  [waterA, waterB].forEach((w, i) => {
+    w.scale.y = h;
+    const wob = Math.sin(performance.now() * 0.0015 + i * 1.3) * 0.012;
+    w.position.y = WALL_T + h / 2 + wob;
+  });
+  // Update gauge
+  const pct = Math.round(Math.min(1, waterLevel) * 100);
+  document.getElementById('gauge-value').textContent = pct + '%';
+  document.getElementById('bar-fill').style.width = pct + '%';
+}
+
+// =====================================================================
+// PIPES — doubled per chamber
+// =====================================================================
+// Helper: build a multi-segment pipe path between waypoints
+function pipePath(points, mat, radius = 0.13) {
+  const g = new THREE.Group();
+  for (let i = 0; i < points.length - 1; i++) {
+    g.add(pipeBetween(points[i], points[i + 1], mat, radius));
+  }
+  // Add elbow spheres at intermediate points
+  for (let i = 1; i < points.length - 1; i++) {
+    g.add(elbow(points[i], mat, radius * 1.15));
+  }
+  return g;
+}
+
+// Pipe X positions inside each chamber
+const dolmaXA = -3.5, dolmaXB = +3.5;          // inlet x (toward outer side)
+const cikisXA = -1.5, cikisXB = +1.5;          // outlet x (toward inner shared wall)
+const dipXA   = -1.0, dipXB   = +1.0;          // dip drain x
+const tepeXA  = -2.5, tepeXB  = +2.5;          // weir x (chamber center)
+
+// ----------- DOLMA HATLARI (×2, blue) -----------
+const dolmaGroup = new THREE.Group();
+dolmaGroup.userData.id = 'dolma';
+{
+  // Dolma A (left chamber)
+  const A = pipePath([
+    new THREE.Vector3(dolmaXA, 5.5, 2.0),       // outside top (above ceiling)
+    new THREE.Vector3(dolmaXA, 3.7, 2.0),       // inside manevra after passing ceiling
+    new THREE.Vector3(dolmaXA, 3.7, -1.2),      // through manevra-A wall, into chamber
+    new THREE.Vector3(dolmaXA, 2.0, -1.2),      // drop into water
+  ], matPipeBlue, 0.13);
+  dolmaGroup.add(A);
+  // Spout cone
+  const spoutA = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.13, 0.18, 0.32, 16),
+    matPipeBlue
+  );
+  spoutA.position.set(dolmaXA, 1.85, -1.2);
+  dolmaGroup.add(spoutA);
+  // Vana on horizontal segment in manevra
+  const vA = makeValve('z');
+  vA.position.set(dolmaXA, 3.7, 1.4);
+  dolmaGroup.add(vA);
+
+  // Dolma B (right chamber) — mirror
+  const B = pipePath([
+    new THREE.Vector3(dolmaXB, 5.5, 2.0),
+    new THREE.Vector3(dolmaXB, 3.7, 2.0),
+    new THREE.Vector3(dolmaXB, 3.7, -1.2),
+    new THREE.Vector3(dolmaXB, 2.0, -1.2),
+  ], matPipeBlue, 0.13);
+  dolmaGroup.add(B);
+  const spoutB = spoutA.clone(); spoutB.position.x = dolmaXB; dolmaGroup.add(spoutB);
+  const vB = makeValve('z'); vB.position.set(dolmaXB, 3.7, 1.4); dolmaGroup.add(vB);
+}
+root.add(dolmaGroup);
+
+// ----------- ÇIKIŞ HATLARI (×2, blue) -----------
+const cikisGroup = new THREE.Group();
+cikisGroup.userData.id = 'cikis';
+{
+  // Çıkış A — exits manevra LEFT wall
+  const yLow = 0.9;
+  const A = pipePath([
+    new THREE.Vector3(cikisXA, yLow, -1.2),                    // inside chamber A near front wall
+    new THREE.Vector3(cikisXA, yLow,  1.2),                    // through manevra-A wall, into manevra
+    new THREE.Vector3(-(MANEV_W/2 - 0.4), yLow, 1.2),          // turn left, toward manevra left wall
+    new THREE.Vector3(-(MANEV_W/2 + 1.6), yLow, 1.2),          // exit through left wall, outside
+  ], matPipeBlue, 0.13);
+  cikisGroup.add(A);
+  // Vana
+  const vA = makeValve('x'); vA.position.set(-3.6, yLow, 1.2); cikisGroup.add(vA);
+  // Exit flange + cap
+  const fA = makeFlange(
+    new THREE.Vector3(-(MANEV_W/2 + 1.6), yLow, 1.2),
+    new THREE.Vector3(1, 0, 0), matPipeBlue
+  );
+  cikisGroup.add(fA);
+
+  // Çıkış B — mirror, exits manevra RIGHT wall
+  const B = pipePath([
+    new THREE.Vector3(cikisXB, yLow, -1.2),
+    new THREE.Vector3(cikisXB, yLow,  1.2),
+    new THREE.Vector3((MANEV_W/2 - 0.4), yLow, 1.2),
+    new THREE.Vector3((MANEV_W/2 + 1.6), yLow, 1.2),
+  ], matPipeBlue, 0.13);
+  cikisGroup.add(B);
+  const vB = makeValve('x'); vB.position.set(3.6, yLow, 1.2); cikisGroup.add(vB);
+  const fB = makeFlange(
+    new THREE.Vector3((MANEV_W/2 + 1.6), yLow, 1.2),
+    new THREE.Vector3(1, 0, 0), matPipeBlue
+  );
+  cikisGroup.add(fB);
+}
+root.add(cikisGroup);
+
+// ----------- DİP SAVAK HATLARI (×2, red) -----------
+const dipGroup = new THREE.Group();
+dipGroup.userData.id = 'dipSavak';
+{
+  // Dip A — exits manevra FRONT wall (down)
+  const yDip = 0.35;
+  const A = pipePath([
+    new THREE.Vector3(dipXA, yDip, -1.2),
+    new THREE.Vector3(dipXA, yDip,  2.5),                       // toward front of manevra
+    new THREE.Vector3(dipXA, yDip,  cM.z + MANEV_D/2 + 0.5),    // through front wall
+  ], matPipeRed, 0.12);
+  dipGroup.add(A);
+  // Drop down outside front wall
+  const dropA = pipePath([
+    new THREE.Vector3(dipXA, yDip,  cM.z + MANEV_D/2 + 0.5),
+    new THREE.Vector3(dipXA, -0.5, cM.z + MANEV_D/2 + 0.5),
+  ], matPipeRed, 0.12);
+  dipGroup.add(dropA);
+  const vA = makeValve('z'); vA.position.set(dipXA, yDip, 1.6); dipGroup.add(vA);
+
+  // Dip B — mirror
+  const B = pipePath([
+    new THREE.Vector3(dipXB, yDip, -1.2),
+    new THREE.Vector3(dipXB, yDip,  2.5),
+    new THREE.Vector3(dipXB, yDip,  cM.z + MANEV_D/2 + 0.5),
+  ], matPipeRed, 0.12);
+  dipGroup.add(B);
+  const dropB = pipePath([
+    new THREE.Vector3(dipXB, yDip,  cM.z + MANEV_D/2 + 0.5),
+    new THREE.Vector3(dipXB, -0.5, cM.z + MANEV_D/2 + 0.5),
+  ], matPipeRed, 0.12);
+  dipGroup.add(dropB);
+  const vB = makeValve('z'); vB.position.set(dipXB, yDip, 1.6); dipGroup.add(vB);
+}
+root.add(dipGroup);
+
+// ----------- TEPE SAVAKLAR (×2, green weir crests) -----------
+const tepeGroup = new THREE.Group();
+tepeGroup.userData.id = 'tepeSavak';
+{
+  // Each weir is a green block sitting on top of the manevra-chamber wall (z=0)
+  // Visible on chamber-side and manevra-side, with a downward spillway ramp into manevra
+  const matWeir = new THREE.MeshStandardMaterial({
+    color: 0x4cb060, roughness: 0.4, metalness: 0.5,
+    emissive: 0x103018, emissiveIntensity: 0.3,
+  });
+  const matRamp = new THREE.MeshStandardMaterial({
+    color: 0x6bd47b, roughness: 0.4, metalness: 0.4,
+    transparent: true, opacity: 0.5, side: THREE.DoubleSide,
+  });
+
+  // Weir A
+  const wA = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.18, 0.5), matWeir);
+  wA.position.set(tepeXA, WEIR_Y, 0);  // on the wall between manevra & A
+  tepeGroup.add(wA);
+  // Spillway ramp falling into manevra side
+  const rA = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 1.3), matRamp);
+  rA.rotation.x = -0.40;
+  rA.position.set(tepeXA, WEIR_Y - 0.3, 0.6);
+  tepeGroup.add(rA);
+
+  // Weir B (mirror)
+  const wB = wA.clone(); wB.position.x = tepeXB; tepeGroup.add(wB);
+  const rB = rA.clone(); rB.position.x = tepeXB; tepeGroup.add(rB);
+}
+root.add(tepeGroup);
+
+// ----------- TAŞMA TAHLİYESİ (×1, green, exits manevra side) -----------
+const tasmaGroup = new THREE.Group();
+tasmaGroup.userData.id = 'tasma';
+
+// Where the taşma pipe exits — through manevra back wall (no wait, that's chambers)
+// Use manevra LEFT wall (x = -MANEV_W/2) at high height. Or use manevra ceiling at the back.
+// Better: exit through manevra back wall at top (between the two chambers, at x=0, z=0 area)
+// Hmm, chambers are at -z. So manevra back wall is at z=0 (shared with chambers). Can't exit there.
+// Manevra front wall is at z=cM.z+MANEV_D/2 = 4. Exit through front wall at top.
+//
+// Path: collects from both weirs (in manevra at high y), runs along manevra interior,
+// exits through front wall at upper position, then drops down outside.
+const TASMA_Y = 3.6;
+const TASMA_END_Z = cM.z + MANEV_D / 2 + 1.6;  // outside front wall
+{
+  // Hopper above weirs (collects the spilled water) — small flat plate per weir, then horizontal pipe
+  const collectorA = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.18, 0.3, 16),
+    matPipeGreen
+  );
+  collectorA.position.set(tepeXA, TASMA_Y - 0.1, 0.7);
+  tasmaGroup.add(collectorA);
+  const collectorB = collectorA.clone(); collectorB.position.x = tepeXB; tasmaGroup.add(collectorB);
+
+  // Vertical risers from collectors
+  const r1 = pipeBetween(
+    new THREE.Vector3(tepeXA, TASMA_Y - 0.1, 0.7),
+    new THREE.Vector3(tepeXA, TASMA_Y, 0.7),
+    matPipeGreen, 0.13
+  );
+  tasmaGroup.add(r1);
+  const r2 = pipeBetween(
+    new THREE.Vector3(tepeXB, TASMA_Y - 0.1, 0.7),
+    new THREE.Vector3(tepeXB, TASMA_Y, 0.7),
+    matPipeGreen, 0.13
+  );
+  tasmaGroup.add(r2);
+
+  // Horizontal manifold combining A and B at y=TASMA_Y, z=0.7
+  const main = pipePath([
+    new THREE.Vector3(tepeXA, TASMA_Y, 0.7),
+    new THREE.Vector3(tepeXB, TASMA_Y, 0.7),
+  ], matPipeGreen, 0.13);
+  tasmaGroup.add(main);
+
+  // From midpoint go to manevra front wall and exit
+  const mid = new THREE.Vector3(0, TASMA_Y, 0.7);
+  const exitInside = new THREE.Vector3(0, TASMA_Y, cM.z + MANEV_D/2 - 0.2);
+  const exitOutside = new THREE.Vector3(0, TASMA_Y, TASMA_END_Z);
+  const out = pipePath([mid, exitInside, exitOutside], matPipeGreen, 0.14);
+  tasmaGroup.add(out);
+
+  // End cage (decorative)
+  const cage = new THREE.Mesh(
+    new THREE.TorusGeometry(0.16, 0.02, 8, 16),
+    new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.7, roughness: 0.3 })
+  );
+  cage.rotation.x = Math.PI / 2;
+  cage.position.copy(exitOutside);
+  tasmaGroup.add(cage);
+}
+root.add(tasmaGroup);
+
+// ----------- VANALAR group (extra valve representation) -----------
+const vanalarGroup = new THREE.Group();
+vanalarGroup.userData.id = 'vanalar';
+{
+  // We placed valves in dolma/cikis/dip groups above with specific orientations.
+  // For the "Vanalar" highlight we'll add a few standalone ones for visibility,
+  // and also tag the existing valves (added below via traversal).
+  // Add an extra demonstrative valve group is unnecessary — we'll just highlight existing
+  // through duplicate references in selectableGroups (handled in highlight()).
+}
+root.add(vanalarGroup);
+
+// =====================================================================
+// OVERFLOW VISUALIZATION — water flowing from weirs and out tasma
+// =====================================================================
+const overflowGroup = new THREE.Group();
+root.add(overflowGroup);
+
+// Translucent waterfall mesh from each weir down to manevra floor
+function makeWaterfall(weirX) {
+  const fromY = WEIR_Y - 0.18;
+  const toY = WALL_T + 0.05;
+  const w = 0.55, d = 0.10;
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, fromY - toY, d),
+    matStream.clone()
+  );
+  m.material.opacity = 0.7;
+  m.position.set(weirX, (fromY + toY) / 2, 0.50);
+  return m;
+}
+const waterfallA = makeWaterfall(tepeXA);
+const waterfallB = makeWaterfall(tepeXB);
+overflowGroup.add(waterfallA, waterfallB);
+
+// "Pool" of water on the manevra floor when overflow active
+const manevPoolMat = matStream.clone();
+manevPoolMat.opacity = 0.45;
+const manevPool = new THREE.Mesh(
+  new THREE.BoxGeometry(MANEV_W - 2 * WALL_T - 0.1, 0.15, MANEV_D - 2 * WALL_T - 0.1),
+  manevPoolMat
+);
+manevPool.position.set(cM.x, WALL_T + 0.075, cM.z);
+manevPool.scale.y = 0.001;
+overflowGroup.add(manevPool);
+
+// Stream coming OUT of the taşma tahliyesi pipe end
+// Positioned to fall down from the pipe end straight to ground
+const tasmaJetMat = matStream.clone();
+tasmaJetMat.opacity = 0.85;
+const tasmaJetLength = 3.0;
+const tasmaJet = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.14, 0.10, tasmaJetLength, 16),
+  tasmaJetMat
+);
+// Pipe end at (0, TASMA_Y, TASMA_END_Z) — water falls straight down
+tasmaJet.position.set(0, TASMA_Y - tasmaJetLength / 2, TASMA_END_Z);
+overflowGroup.add(tasmaJet);
+
+// Splash/puddle at the bottom where the jet hits the ground
+const splashMat = matStream.clone();
+splashMat.opacity = 0.6;
+const splash = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.55, 0.75, 0.08, 28),
+  splashMat
+);
+splash.position.set(0, 0.04, TASMA_END_Z);
+overflowGroup.add(splash);
+
+// Initially hidden
+overflowGroup.children.forEach(c => c.visible = false);
+
+// =====================================================================
+// Selectable groups & raycasting
+// =====================================================================
+// Build a virtual "havuzluk" group containing both chambers + their waters
+const havuzlukVirtual = new THREE.Group();
+havuzlukVirtual.add(havuzA, havuzB, waterA, waterB);
+// Note: adding to a group reparents the meshes. We need to reparent back so they still render
+// at original positions. Better approach: track by tag instead of reparenting.
+// REVERT: Re-add to root
+[havuzA, havuzB, waterA, waterB].forEach(m => root.add(m));
+
+const selectableGroups = {
+  havuzluk: { meshes: [havuzA, havuzB, waterA, waterB] },
+  manevra:  { meshes: [manev] },
+  dolma:    { meshes: [dolmaGroup] },
+  cikis:    { meshes: [cikisGroup] },
+  tepeSavak:{ meshes: [tepeGroup] },
+  dipSavak: { meshes: [dipGroup] },
+  tasma:    { meshes: [tasmaGroup] },
+  vanalar:  { meshes: [] },  // populated by traversing dolma/cikis/dip valves
+};
+
+// Populate vanalar by collecting all torus (wheel) and valve body meshes
+[dolmaGroup, cikisGroup, dipGroup].forEach(g => {
+  g.traverse(o => {
+    if (o.isMesh && (o.material === matValveBody || o.material === matValveWheel)) {
+      selectableGroups.vanalar.meshes.push(o);
+    }
+  });
+});
+
+// Pre-compute base materials for resetting highlights
+function eachMesh(meshOrGroup, fn) {
+  if (Array.isArray(meshOrGroup)) {
+    meshOrGroup.forEach(m => eachMesh(m, fn));
+  } else if (meshOrGroup.isMesh) {
+    fn(meshOrGroup);
+  } else if (meshOrGroup.traverse) {
+    meshOrGroup.traverse(o => { if (o.isMesh) fn(o); });
+  }
+}
+
+const originalEmissive = new Map();
+Object.values(selectableGroups).forEach(({ meshes }) => {
+  eachMesh(meshes, m => {
+    if (m.material && m.material.emissive && !originalEmissive.has(m)) {
+      originalEmissive.set(m, {
+        color: m.material.emissive.clone(),
+        intensity: m.material.emissiveIntensity ?? 0,
+      });
+    }
+  });
+});
+
+let activeId = null;
+
+function highlight(id) {
+  // Reset all
+  originalEmissive.forEach((orig, mesh) => {
+    if (mesh.material && mesh.material.emissive) {
+      mesh.material.emissive.copy(orig.color);
+      mesh.material.emissiveIntensity = orig.intensity;
+    }
+  });
+  if (id && selectableGroups[id]) {
+    eachMesh(selectableGroups[id].meshes, m => {
+      if (m.material && m.material.emissive && originalEmissive.has(m)) {
+        m.material.emissive.set(0x38d6ff);
+        m.material.emissiveIntensity = 0.6;
+      }
+    });
+  }
+}
+
+// =====================================================================
+// CSS2D number labels
+// =====================================================================
+const labelDefs = [
+  { id: 'havuzluk',  pos: new THREE.Vector3(0, HAVUZ_H + 1.0, -HAVUZ_D - 0.4) },              // above both chambers, back-center
+  { id: 'manevra',   pos: new THREE.Vector3(cM.x, MANEV_H + 1.2, cM.z + MANEV_D/2 + 0.8) },   // front of manevra (raised + forward)
+  { id: 'dolma',     pos: new THREE.Vector3(dolmaXB + 1.2, 5.7, 2.0) },                       // top, above dolma B
+  { id: 'cikis',     pos: new THREE.Vector3(MANEV_W/2 + 2.2, 0.9, 1.2) },                     // right side, near cikis B exit
+  { id: 'tepeSavak', pos: new THREE.Vector3(tepeXA - 0.6, WEIR_Y + 0.7, 0) },                 // above weir A, slightly left
+  { id: 'dipSavak',  pos: new THREE.Vector3(dipXB + 1.0, 0.4, cM.z + MANEV_D/2 + 0.8) },      // front-bottom right
+  { id: 'tasma',     pos: new THREE.Vector3(0, TASMA_Y + 0.2, TASMA_END_Z + 0.6) },           // front of manevra, above tasma exit
+  { id: 'vanalar',   pos: new THREE.Vector3(-3.5, 4.7, 1.4) },                                // above vana on dolma A
+];
+const labelEls = {};
+labelDefs.forEach(def => {
+  const c = COMPONENTS[def.id];
+  const el = document.createElement('div');
+  el.className = 'label3d';
+  el.dataset.id = def.id;
+  el.innerHTML = `<span class="pin"><span class="num">${c.n}</span>${c.title}</span>`;
+  const obj = new CSS2DObject(el);
+  obj.position.copy(def.pos);
+  scene.add(obj);
+  labelEls[def.id] = el;
+  el.addEventListener('click', () => selectComponent(def.id));
+});
+
+// =====================================================================
+// Buttons in side list
+// =====================================================================
+const compsContainer = document.getElementById('components');
+const btnEls = {};
+Object.entries(COMPONENTS).forEach(([id, c]) => {
+  const btn = document.createElement('button');
+  btn.dataset.id = id;
+  btn.innerHTML = `
+    <span class="num">${c.n}</span>
+    <span class="swatch" style="background:${c.color}"></span>
+    <span class="name">${c.title}</span>
+  `;
+  btn.addEventListener('click', () => selectComponent(id));
+  compsContainer.appendChild(btn);
+  btnEls[id] = btn;
+});
+
+// =====================================================================
+// Selection
+// =====================================================================
+function selectComponent(id) {
+  activeId = id;
+  highlight(id);
+
+  const c = id ? COMPONENTS[id] : initial;
+  document.getElementById('panel-num').textContent = c.n;
+  document.getElementById('panel-title').textContent = c.title;
+  document.getElementById('panel-role').textContent = c.role;
+  document.getElementById('panel-desc').innerHTML = c.desc;
+  const specs = c.specs || initial.specs;
+  document.getElementById('spec-1').textContent = specs[0][1];
+  document.getElementById('spec-2').textContent = specs[1][1];
+  const panelSpecs = document.querySelectorAll('.panel .specs .spec .k');
+  if (panelSpecs.length >= 2) {
+    panelSpecs[0].textContent = specs[0][0];
+    panelSpecs[1].textContent = specs[1][0];
+  }
+  Object.entries(btnEls).forEach(([k, b]) => b.classList.toggle('active', k === id));
+  Object.entries(labelEls).forEach(([k, el]) => el.classList.toggle('active', k === id));
+
+  controls.autoRotate = false;
+  document.getElementById('btn-rotate').classList.remove('primary');
+}
+
+// =====================================================================
+// Click on scene to select via raycasting
+// =====================================================================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let downXY = null;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  downXY = { x: e.clientX, y: e.clientY };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downXY) return;
+  const dx = e.clientX - downXY.x, dy = e.clientY - downXY.y;
+  if (Math.hypot(dx, dy) > 6) { downXY = null; return; }
+  downXY = null;
+
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const meshes = [];
+  Object.entries(selectableGroups).forEach(([id, { meshes: m }]) => {
+    eachMesh(m, mesh => { mesh.userData._groupId = id; meshes.push(mesh); });
+  });
+
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    const id = hits[0].object.userData._groupId;
+    if (id) selectComponent(id);
+  }
+});
+
+// =====================================================================
+// Buttons / interactions
+// =====================================================================
+let cutaway = false;
+const btnFill = document.getElementById('btn-fill');
+const btnDrain = document.getElementById('btn-drain');
+const btnRotate = document.getElementById('btn-rotate');
+const btnCutaway = document.getElementById('btn-cutaway');
+const btnReset = document.getElementById('btn-reset');
+
+btnFill.addEventListener('click', () => { waterTarget = 1.05; }); // intentionally over 1.0 to trigger overflow
+btnDrain.addEventListener('click', () => { waterTarget = 0.05; });
+btnRotate.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  btnRotate.classList.toggle('primary', controls.autoRotate);
+});
+btnCutaway.addEventListener('click', () => {
+  cutaway = !cutaway;
+  matConcrete.opacity = cutaway ? 0.04 : 0.16;
+  btnCutaway.classList.toggle('primary', cutaway);
+});
+
+let cameraTween = null;
+btnReset.addEventListener('click', () => {
+  selectComponent(null);
+  waterTarget = 0.55;
+  controls.autoRotate = true;
+  btnRotate.classList.add('primary');
+  cameraTween = {
+    from: { pos: camera.position.clone(), tgt: controls.target.clone() },
+    to:   { pos: new THREE.Vector3(15, 12, 19), tgt: new THREE.Vector3(0, 2, -1) },
+    t: 0,
+  };
+});
+btnRotate.classList.add('primary');
+
+// =====================================================================
+// Animation loop
+// =====================================================================
+const OVERFLOW_THRESHOLD = 0.96;
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Water level easing
+  waterLevel += (waterTarget - waterLevel) * 0.04;
+  updateWater();
+
+  // Camera tween (Reset)
+  if (cameraTween) {
+    cameraTween.t = Math.min(1, cameraTween.t + 0.02);
+    const ease = 1 - Math.pow(1 - cameraTween.t, 3);
+    camera.position.lerpVectors(cameraTween.from.pos, cameraTween.to.pos, ease);
+    controls.target.lerpVectors(cameraTween.from.tgt, cameraTween.to.tgt, ease);
+    if (cameraTween.t >= 1) cameraTween = null;
+  }
+
+  // Overflow visualization
+  const overflowing = waterLevel >= OVERFLOW_THRESHOLD;
+  // Smooth fade
+  overflowGroup.children.forEach(c => {
+    c.visible = waterLevel > OVERFLOW_THRESHOLD - 0.05;
+  });
+  if (overflowing) {
+    const intensity = Math.min(1, (waterLevel - OVERFLOW_THRESHOLD) / 0.06);
+    const pulse = 0.4 + Math.sin(performance.now() * 0.008) * 0.12;
+    const t = performance.now() * 0.001;
+
+    [waterfallA, waterfallB].forEach((w, i) => {
+      w.material.opacity = (0.55 + pulse * 0.2) * intensity;
+      // Subtle vertical wobble + animated scale for "flowing" feel
+      w.position.y = (WEIR_Y - 0.18 + WALL_T + 0.05) / 2 + Math.sin(t * 4 + i) * 0.02;
+      w.scale.x = 1 + Math.sin(t * 6 + i * 2) * 0.06;
+    });
+    // Animated scale for tasma jet — looks like water is flowing
+    tasmaJet.material.opacity = (0.6 + pulse * 0.2) * intensity;
+    tasmaJet.scale.x = tasmaJet.scale.z = 1 + Math.sin(t * 8) * 0.10;
+    splash.material.opacity = (0.35 + pulse * 0.1) * intensity;
+    splash.scale.x = splash.scale.z = 1 + Math.sin(t * 5) * 0.12;
+
+    // Manevra pool grows over time during overflow
+    manevraFloorWater = Math.min(0.25, manevraFloorWater + 0.001 * intensity);
+  } else {
+    manevraFloorWater = Math.max(0, manevraFloorWater - 0.005);
+  }
+  manevPool.scale.y = Math.max(0.001, manevraFloorWater / 0.15);
+  manevPool.material.opacity = 0.25 + manevraFloorWater * 0.8;
+  manevPool.visible = manevraFloorWater > 0.005;
+
+  // Pulse highlight on active component
+  if (activeId && selectableGroups[activeId]) {
+    const pulse = 0.5 + 0.25 * Math.sin(performance.now() * 0.005);
+    eachMesh(selectableGroups[activeId].meshes, m => {
+      if (m.material && m.material.emissive && originalEmissive.has(m)) {
+        m.material.emissiveIntensity = pulse;
+      }
+    });
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+animate();
+
+// =====================================================================
+// Resize
+// =====================================================================
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Stop autorotate on user interaction
+controls.addEventListener('start', () => {
+  if (controls.autoRotate) {
+    controls.autoRotate = false;
+    btnRotate.classList.remove('primary');
+  }
+});
+
+// Hide loader
+setTimeout(() => {
+  document.getElementById('loader').classList.add('hidden');
+}, 500);
+</script>
+
+</body>
+</html>
