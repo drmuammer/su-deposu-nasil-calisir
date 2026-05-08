@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Su Deposu • İnteraktif 3D Şema</title>
-<meta name="description" content="Su deposunun bölümleri ve elemanları — havuzluk, manevra odası, tepe savak, dip savak, dolma ve taşma tahliyeleri, debimetreler, bypass — interaktif 3 boyutlu animasyonlu sunum. İller Bankası Mekanik Proje Şartnamesine uyumlu.">
+<meta name="description" content="Su deposunun bölümleri ve elemanları — havuzluk, manevra odası, tepe savak, dip savak, dolma ve taşma tahliyeleri, debimetreler, bypass — interaktif 3 boyutlu animasyonlu sunum.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -579,7 +579,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // =====================================================================
-// COMPONENTS — Şartname uyumlu, 11 grup (3 yeni: 09, 10, 11)
+// COMPONENTS — 11 bileşen grubu
 // =====================================================================
 const COMPONENTS = {
   havuzluk: {
@@ -588,7 +588,6 @@ const COMPONENTS = {
     color: '#4fb5ff',
     desc: 'Türkiye\'deki içme suyu depoları çoğunlukla <strong>iki ayrı bölmeden</strong> oluşur. Bir bölme bakım ya da temizlik için boşaltılırken diğeri şebekeyi beslemeye devam eder; böylece servis kesintisi yaşanmaz. Her iki bölme su geçirimsiz <strong>betonarme</strong> yapıdadır, tabana doğru % 0,5–1 eğimle inşa edilir.',
     specs: [['Bölme Sayısı', '2 adet'], ['Yapı', 'Betonarme']],
-    src: 'Şartname Madde 3.5 — depolar 2 gözlü inşa edilir.'
   },
   manevra: {
     n: '02', title: 'Manevra Odası',
@@ -596,7 +595,6 @@ const COMPONENTS = {
     color: '#ffb547',
     desc: '<strong>Manevra Odası</strong>, deponun tüm vanalarının, debimetrelerinin ve kontrol elemanlarının bulunduğu kuru bölmedir. Havuzlukların önüne bitişik biçimde inşa edilir; içinde <strong>3 katmanlı boru sistemi</strong> bulunur — üstte dolma, ortada çıkış, altta dip savak. Net iç yükseklik <strong>≥200 cm</strong>, zemin ile boru taban kotu arası <strong>≥30 cm</strong>.',
     specs: [['Net Yük.', '≥ 200 cm'], ['Zemin-Boru', '≥ 30 cm']],
-    src: 'Şartname Madde 2-m, 4.14-c'
   },
   dolma: {
     n: '03', title: 'Dolma Hatları',
@@ -604,7 +602,6 @@ const COMPONENTS = {
     color: '#4fb5ff',
     desc: 'Her havuzluk bölmesinin <strong>kendi dolma hattı</strong> bulunur. İsale hattından gelen su, manevra odasının <strong>ön duvarından</strong> diğer hatlarla aynı yönde girer; ön duvar yakınında <code>vana → demontaj → debimetre → motorlu akış ayar vanası</code> sırasıyla geçer; sonra manevra arka duvarından sızdırmazlık flanşıyla havuzluğa girer. Havuzluk içinde <strong>dikey kolon</strong> max su seviyesi üstüne çıkar ve <strong>açık dökülümle</strong> boşalır (krepe yöntemi — hava kilitlenmesini önler).',
     specs: [['Adet', '2'], ['Sıra', 'V→DM→F→V_mot']],
-    src: 'Şartname Madde 4.10-a'
   },
   cikis: {
     n: '04', title: 'Çıkış Hatları',
@@ -612,7 +609,6 @@ const COMPONENTS = {
     color: '#d14848',
     desc: 'Her bölmeden ayrı bir <strong>çıkış (isale) hattı</strong> ile şebekeye su verilir. Havuzluk içindeki <strong>krepin</strong> (paslanmaz çelik filtre) tabandan +20-30 cm üstte; oradan dikey yukarı çıkar, sızdırmazlık flanşıyla manevra odasının orta sırasına geçer ve <strong>ön duvardan dışa</strong> çıkar. Debimetreden önce 10×D, sonra 5×D düz hat zorunlu.',
     specs: [['Adet', '2'], ['Çıkış Yönü', 'Ön duvar']],
-    src: 'Şartname Madde 4.10-a, 3.4'
   },
   tepeSavak: {
     n: '05', title: 'Tepe Savaklar',
@@ -620,7 +616,6 @@ const COMPONENTS = {
     color: '#6bd47b',
     desc: 'Her iki bölmenin de kendi <strong>tepe savağı</strong> vardır. Su seviyesi tasarım üst kotunu aştığında bu eşikten kontrollü biçimde taşar. Taşan su manevra odasındaki ortak <strong>taşma tahliye hattına</strong> yönlendirilir; havuz duvar ve kapağı yüksek su basıncına maruz kalmaz. Maksimum su seviyesi ile tavan arası <strong>60 cm hava boşluğu</strong>.',
     specs: [['Adet', '2'], ['Hava Boş.', '60 cm']],
-    src: 'Şartname Madde 3.5'
   },
   dipSavak: {
     n: '06', title: 'Dip Savaklar',
@@ -628,7 +623,6 @@ const COMPONENTS = {
     color: '#534ab7',
     desc: 'Tabanda biriken çamur, kireç ve çökeltileri tahliye eden hatlardır. Her bölmenin <strong>kendi dip savak vanası</strong> (motorlu) vardır. Hat çapı, depoyu <strong>1-2 saatte boşaltacak</strong> kapasitede seçilir. Havuzluk taban kotundan çıkar, manevra odasının alt sırasından ön duvardan dışa atılır.',
     specs: [['Adet', '2'], ['Boşaltma', '1–2 saat']],
-    src: 'Şartname Madde 3.5'
   },
   tasma: {
     n: '07', title: 'Taşma Tahliyesi',
@@ -636,7 +630,6 @@ const COMPONENTS = {
     color: '#6bd47b',
     desc: 'Her iki bölmenin tepe savaklarından dökülen suyu manevra odasından <strong>tek bir hatla</strong> dışarı boşaltır. Su seviyesi tepe kotuna ulaştığında otomatik devreye girer; arıza ya da seviye sensörü hatası durumunda deponun emniyetini sağlar. Ucu açık, kafesli ve haşerat girmesin diye sineklikli olur.',
     specs: [['Adet', '1 (ortak)'], ['Tip', 'Serbest akış']],
-    src: 'Şartname Madde 3.5'
   },
   vanalar: {
     n: '08', title: 'Vanalar',
@@ -644,7 +637,6 @@ const COMPONENTS = {
     color: '#ff6b6b',
     desc: 'Manevra odasında her hat üzerinde armatürler bulunur: 2 dolma + 2 çıkış + 2 dip savak hatlarında <strong>manuel kelebek vanalar (V1A-V4A) + motorlu akış ayar vanaları (V1B-V4B)</strong> + <strong>1 bypass vanası (V_BP)</strong> = en az 11 vana. <strong>DN100 ve üstü</strong> kelebek tip + demontaj parçası ile birlikte. Motorlu vanalar IP67, 4-20 mA SCADA sinyaliyle uzaktan kumandalı.',
     specs: [['Manuel', '4 adet'], ['Motorlu', '7 adet']],
-    src: 'Şartname Madde 2-r, 2-s, 3.3.2'
   },
   debimetre: {
     n: '09', title: 'Debimetreler',
@@ -652,7 +644,6 @@ const COMPONENTS = {
     color: '#ffb547',
     desc: '<strong>Elektromanyetik debimetreler</strong> her dolma (F1, F2) ve çıkış (F3, F4) hattına yerleştirilir. <strong>FIT-101 / FT-201</strong> serisi gibi DN125 boyutlu, 4-20 mA + RS485 çıkışlı, 24 VDC besleme. Hassas ölçüm için debimetreden önce <strong>10×D</strong>, sonra <strong>5×D</strong> düz hat mesafesi şart. Ekranlarda anlık debi (m³/h) ve toplam tüketim görünür.',
     specs: [['Adet', '4'], ['Çap', 'DN125']],
-    src: 'Şartname Madde 3.4, 4.10-a'
   },
   bypass: {
     n: '10', title: 'Bypass Hattı',
@@ -660,7 +651,6 @@ const COMPONENTS = {
     color: '#ffb547',
     desc: '<strong>İki havuzluk bölmesinin çıkış hatlarını</strong> manevra odasında birbirine bağlayan, tek bir vanayla (V_BP) açılıp kapatılan kollektör. T_BP_A ↔ V_BP ↔ T_BP_B. <strong>V_BP açıkken</strong>: bir bölmenin suyu, diğer bölmenin çıkış kollektörüne yönlendirilebilir (su aktarımı); ya da bir bölme servis dışıyken, diğerinin suyu her iki çıkış flanşından da basılabilir.',
     specs: [['Vana', 'V_BP'], ['T-Bağ.', '2 adet']],
-    src: 'Şartname Madde 3.5'
   },
   krepin: {
     n: '11', title: 'Krepinler',
@@ -668,16 +658,14 @@ const COMPONENTS = {
     color: '#9aa3a8',
     desc: 'Her bölmenin çıkış borusunun başlangıcında <strong>316 kalite paslanmaz çelik krepin</strong> bulunur. Tabandan <strong>20-30 cm yukarıda</strong> konumlanır — böylece tabandaki çamur ve çökelti şebekeye gitmez. Bir ucu flanşlı, kafesli silindir yapıda. Krepin çukurunun taban kotu seviyesinde dip tahliye projelendirilir.',
     specs: [['Malzeme', '316 SS'], ['Yük.', 'Taban+25cm']],
-    src: 'Şartname Madde 3.5'
   }
 };
 
 const initial = {
   n: '00', title: 'Depo Şeması',
   role: 'Genel Bakış',
-  desc: 'Türkiye\'deki tipik bir içme suyu deposu; <strong>iki havuzluk bölmesi</strong> ile bunların önündeki <strong>manevra odasından</strong> oluşur. Bu sahne <strong>İller Bankası Mekanik Proje Şartnamesine</strong> uygun olarak güncellenmiştir — manevra odasında <strong>3 katmanlı boru sistemi</strong> (üstte dolma, ortada çıkış, altta dip savak), her hatta debimetre ve motorlu akış ayar vanası, bölmeler arası bypass hattı, krepin ve sızdırmazlık flanşları yer alır. Aşağıdaki listeden ya da sahnedeki numaralı etiketlerden bir bölümü inceleyin. <strong>Doldur</strong> ile su seviyesini yükseltin, tepe kotunda taşma tahliyesinin devreye girdiğini görün; <strong>Bypass</strong> butonuyla iki bölmenin dolma hatları arasındaki bağlantıyı açıp kapatın.',
-  specs: [['Bileşen', '11 grup'], ['Mod', 'Etkileşimli']],
-  src: 'İller Bankası A.Ş. — İçmesuyu Mekanik Projeleri Teknik Şartnamesi (2013)'
+  desc: 'Türkiye\'deki tipik bir içme suyu deposu; <strong>iki havuzluk bölmesi</strong> ile bunların önündeki <strong>manevra odasından</strong> oluşur. Manevra odasında her havuzluğun ayrı dolma, çıkış ve dip savak hatları, her hatta debimetre ve motorlu akış ayar vanası, bölmeler arası bypass hattı, krepin ve sızdırmazlık flanşları yer alır. Sol-alttaki listeden ya da etiketleri açıp sahnedeki numaralı pinlerden bir bölümü inceleyin. <strong>Doldur</strong> ile su seviyesini yükseltin; <strong>Bypass</strong> butonuyla iki bölmenin çıkış hatları arasındaki bağlantıyı açıp kapatın.',
+  specs: [['Bileşen', '11 grup'], ['Mod', 'Etkileşimli']]
 };
 
 // =====================================================================
@@ -773,7 +761,7 @@ const matWater = new THREE.MeshStandardMaterial({
   emissive: 0x0a4570, emissiveIntensity: 0.4,
 });
 
-// Boru renkleri (şartname madde 2-y: akışkan cinsine göre renk)
+// Boru renkleri — akışkan cinsine göre standart renk kodu
 const matPipeBlue   = new THREE.MeshStandardMaterial({ color: 0x2c7fbf, roughness: 0.5, metalness: 0.4 });   // dolma
 const matPipeRed    = new THREE.MeshStandardMaterial({ color: 0xd14848, roughness: 0.5, metalness: 0.4 });   // çıkış
 const matPipePurple = new THREE.MeshStandardMaterial({ color: 0x6d62c8, roughness: 0.5, metalness: 0.4 });   // dip savak
@@ -1210,7 +1198,7 @@ const WATER_MAX = WEIR_Y - 0.05;
 // 3-katmanlı manevra odası boru kotları
 const Y_DOLMA  = 1.4;     // alt-orta sıra (zemine yakın)
 const Y_CIKIS  = 2.0;     // orta sıra
-const Y_DIP    = 0.5;     // alt sıra (taban+30cm — şartname madde 2-m)
+const Y_DIP    = 0.5;     // alt sıra (taban+30cm)
 
 // Z koordinatları
 const Z_BACK_OUT = 0;                                         // ortak duvar dış yüzü (havuzluk tarafı)
@@ -1247,16 +1235,16 @@ const manev = buildHollowBox(MANEV_W, MANEV_D, MANEV_H, { thickness: WALL_T, sho
 manev.position.copy(cM); manev.userData.id = 'manevra';
 root.add(manev);
 
-// Door
+// Door (manevra odası ön duvarı, ortada — borularla çakışmasın)
 const doorMat = new THREE.MeshStandardMaterial({ color: 0x7a4a2c, roughness: 0.7, metalness: 0.2 });
 const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, 0.05), doorMat);
-door.position.set(-3.4, 0.9, Z_FRONT + 0.01);
+door.position.set(0, 0.9, Z_FRONT + 0.01);
 root.add(door);
 const knob = new THREE.Mesh(
   new THREE.SphereGeometry(0.04, 12, 8),
   new THREE.MeshStandardMaterial({ color: 0xc8a04c, metalness: 0.8, roughness: 0.3 })
 );
-knob.position.set(-2.98, 0.9, Z_FRONT + 0.04);
+knob.position.set(0.42, 0.9, Z_FRONT + 0.04);
 root.add(knob);
 
 // =====================================================================
@@ -1567,7 +1555,7 @@ root.add(cikisGroup);
 // =====================================================================
 // DİP SAVAK HATLARI DS1 & DS2 (alt sıra y=Y_DIP=0.5)
 // Havuzluk taban çıkışı → ön duvar geçişi → manevra alt sırası → V_motor → ön duvardan dışa
-// Çapı dolma/çıkıştan büyük (1-2 saatte boşaltma — şartname madde 3.5)
+// Çapı dolma/çıkıştan büyük (depoyu 1-2 saatte boşaltma kapasitesi)
 // =====================================================================
 const dipGroup = new THREE.Group();
 dipGroup.userData.id = 'dipSavak';
