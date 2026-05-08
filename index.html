@@ -236,6 +236,37 @@ canvas { display: block; outline: none; }
 .controls {
   position: fixed; bottom: 28px; right: 28px; z-index: 10;
   display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.controls.hidden {
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+}
+.controls-toggle {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  z-index: 11;
+  width: 44px; height: 44px;
+  background: linear-gradient(180deg, rgba(13, 29, 46, 0.92), rgba(7, 16, 28, 0.92));
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s ease;
+  padding: 0;
+}
+.controls-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.controls-toggle.active {
+  background: var(--accent); color: var(--bg-0); border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(56, 214, 255, 0.18);
+}
+.controls.visible {
+  bottom: 88px;  /* toggle butonun üstüne yerleşsin */
 }
 .control-group {
   display: flex; gap: 6px;
@@ -427,7 +458,9 @@ canvas { display: block; outline: none; }
   .panel-header h2 { font-size: 17px; }
   .components { left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 38vh; }
   .components button { font-size: 12.5px; padding: 8px 10px; }
-  .controls { bottom: auto; top: 240px; right: 16px; }
+  .controls { right: 16px; bottom: 76px; }
+  .controls.visible { bottom: 76px; }
+  .controls-toggle { right: 16px; bottom: 16px; }
   .control-group button { padding: 8px 12px; font-size: 12px; }
   .water-gauge { display: none; }
   .fm-screen .lcd { font-size: 8px; min-width: 54px; }
@@ -472,14 +505,13 @@ canvas { display: block; outline: none; }
   <div class="role" id="panel-role">Genel Bakış</div>
   <div class="desc" id="panel-desc"></div>
   <div class="specs" id="panel-specs"></div>
-  <div class="src" id="panel-src"></div>
 </div>
 
 <div class="components" id="components">
   <div class="title">Bölümler ve Elemanlar</div>
 </div>
 
-<div class="controls">
+<div class="controls" id="controls">
   <div class="water-gauge">
     <div>
       <div class="label">Su Seviyesi</div>
@@ -501,6 +533,8 @@ canvas { display: block; outline: none; }
     <button id="btn-reset" class="primary" title="Görünümü sıfırla"><span class="ico">⌂</span> Sıfırla</button>
   </div>
 </div>
+
+<button class="controls-toggle" id="controls-toggle" title="Kontrolleri göster" aria-label="Kontroller">⚙</button>
 
 <div id="scene-host"></div>
 
@@ -541,7 +575,7 @@ const COMPONENTS = {
     n: '04', title: 'Çıkış Hatları',
     role: 'Şebekeye Su Verme (×2)',
     color: '#d14848',
-    desc: 'Her bölmeden ayrı bir <strong>çıkış (isale) hattı</strong> ile şebekeye su verilir. Havuzluk içindeki <strong>krepin</strong> (paslanmaz çelik filtre) tabandan +20-30 cm üstte; oradan dikey yukarı çıkar, sızdırmazlık flanşıyla manevra odasının orta sırasına geçer ve <strong>ön duvardan dışa</strong> çıkar (yan duvardan değil — dip savaklarla aynı yönde). Debimetreden önce 10×D, sonra 5×D düz hat zorunlu.',
+    desc: 'Her bölmeden ayrı bir <strong>çıkış (isale) hattı</strong> ile şebekeye su verilir. Havuzluk içindeki <strong>krepin</strong> (paslanmaz çelik filtre) tabandan +20-30 cm üstte; oradan dikey yukarı çıkar, sızdırmazlık flanşıyla manevra odasının orta sırasına geçer ve <strong>ön duvardan dışa</strong> çıkar. Debimetreden önce 10×D, sonra 5×D düz hat zorunlu.',
     specs: [['Adet', '2'], ['Çıkış Yönü', 'Ön duvar']],
     src: 'Şartname Madde 4.10-a, 3.4'
   },
@@ -589,7 +623,7 @@ const COMPONENTS = {
     n: '10', title: 'Bypass Hattı',
     role: 'İki Bölme Arası Su Aktarımı',
     color: '#ffb547',
-    desc: '<strong>İki havuzluk bölmesinin çıkış hatlarını</strong> manevra odasında birbirine bağlayan, tek bir vanayla (V_BP) açılıp kapatılan kollektör. T_BP_A ↔ V_BP ↔ T_BP_B. <strong>V_BP açıkken</strong>: bir bölmenin suyu, diğer bölmenin çıkış kollektörüne yönlendirilebilir (su aktarımı); ya da bir bölme servis dışıyken, diğerinin suyu her iki çıkış flanşından da basılabilir. Şartname madde 3.5: "her türlü alternatife imkân verecek" gerekliliğini karşılar.',
+    desc: '<strong>İki havuzluk bölmesinin çıkış hatlarını</strong> manevra odasında birbirine bağlayan, tek bir vanayla (V_BP) açılıp kapatılan kollektör. T_BP_A ↔ V_BP ↔ T_BP_B. <strong>V_BP açıkken</strong>: bir bölmenin suyu, diğer bölmenin çıkış kollektörüne yönlendirilebilir (su aktarımı); ya da bir bölme servis dışıyken, diğerinin suyu her iki çıkış flanşından da basılabilir.',
     specs: [['Vana', 'V_BP'], ['T-Bağ.', '2 adet']],
     src: 'Şartname Madde 3.5'
   },
@@ -1205,18 +1239,11 @@ let waterLevel = 0.55;
 let waterTarget = 0.55;
 
 // =====================================================================
-// TEPE SAVAKLAR (ön duvar iç yüzünde)
+// TEPE SAVAKLAR — havuzluğun ön duvarı betonarme yapısının kendisidir;
+// ayrı bir boru/çubuk olarak gösterilmez. Grup sadece etiket için kalır.
 // =====================================================================
 const tepeSavakGroup = new THREE.Group();
 tepeSavakGroup.userData.id = 'tepeSavak';
-{
-  const w1 = makeWeir(HAVUZ_W - 2 * WALL_T - 0.5, matPipeGreen);
-  w1.position.set(cA.x, WEIR_Y, cA.z + HAVUZ_D / 2 - WALL_T - 0.04);
-  tepeSavakGroup.add(w1);
-  const w2 = makeWeir(HAVUZ_W - 2 * WALL_T - 0.5, matPipeGreen);
-  w2.position.set(cB.x, WEIR_Y, cB.z + HAVUZ_D / 2 - WALL_T - 0.04);
-  tepeSavakGroup.add(w2);
-}
 root.add(tepeSavakGroup);
 
 // =====================================================================
@@ -1777,7 +1804,6 @@ function updatePanel(c) {
     d.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
     specsHost.appendChild(d);
   });
-  document.getElementById('panel-src').innerHTML = c.src ? `<strong>Şartname:</strong> ${c.src}` : '';
 }
 
 function selectComponent(id) {
@@ -1958,6 +1984,22 @@ btnLabels.addEventListener('click', () => {
   labelsLabel.textContent = labelsVisible ? 'Etiketler' : 'Etiket Yok';
   btnLabels.classList.toggle('on', !labelsVisible);
 });
+
+// Controls toggle (sağ-altta açılır kapanır kontrol paneli)
+let controlsVisible = false;
+const controlsEl = document.getElementById('controls');
+const controlsToggleEl = document.getElementById('controls-toggle');
+function setControlsVisible(v) {
+  controlsVisible = v;
+  controlsEl.classList.toggle('hidden', !v);
+  controlsEl.classList.toggle('visible', v);
+  controlsToggleEl.classList.toggle('active', v);
+  controlsToggleEl.textContent = v ? '×' : '⚙';
+  controlsToggleEl.title = v ? 'Kontrolleri gizle' : 'Kontrolleri göster';
+}
+controlsToggleEl.addEventListener('click', () => setControlsVisible(!controlsVisible));
+// Açılışta gizli başlat
+setControlsVisible(false);
 
 // Kesit toggle (manevra ön duvar opacity)
 let cutawayOn = false;
