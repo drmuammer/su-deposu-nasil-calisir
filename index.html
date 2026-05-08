@@ -108,7 +108,46 @@ canvas { display: block; outline: none; }
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--line-strong); border-radius: 16px;
   padding: 22px 22px 18px; box-shadow: var(--shadow-1);
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+}
+.panel.collapsed {
+  transform: translateX(calc(-100% - 40px));
+  opacity: 0;
+  pointer-events: none;
+}
+.panel-toggle {
+  position: fixed; top: 80px; left: 28px; z-index: 11;
+  background: linear-gradient(180deg, rgba(13, 29, 46, 0.92), rgba(7, 16, 28, 0.92));
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  width: 40px; height: 40px;
+  display: none;
+  align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ink-mute);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; line-height: 1;
+  transition: all 0.3s ease;
+}
+.panel-toggle.visible { display: flex; }
+.panel-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.panel .close-btn {
+  position: absolute; top: 14px; right: 14px;
+  background: transparent; border: 1px solid var(--line);
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--ink-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; line-height: 1;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+.panel .close-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(56, 214, 255, 0.08);
 }
 .panel-header {
   display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
@@ -275,6 +314,7 @@ canvas { display: block; outline: none; }
   box-shadow: 0 0 0 6px rgba(56, 214, 255, 0.18);
 }
 .label3d.active .pin .num { background: var(--bg-0); color: var(--accent); }
+.label3d.hidden { display: none !important; }
 
 /* ----- 3D dimension label (height etc.) ----- */
 .dim-label {
@@ -417,12 +457,14 @@ canvas { display: block; outline: none; }
   </div>
   <div class="meta">
     <strong>Muammer Beslen</strong><br>
-    Manevra Odası • 3D Görselleştirme<br>
-    <span class="tag">İLLER BANKASI ŞARTNAMESİ</span>
+    Manevra Odası • 3D Görselleştirme
   </div>
 </div>
 
+<div class="panel-toggle" id="panel-toggle" title="Açıklama panelini göster">☰</div>
+
 <div class="panel" id="panel">
+  <button class="close-btn" id="panel-close" title="Paneli gizle" aria-label="Kapat">×</button>
   <div class="panel-header">
     <span class="num" id="panel-num">00</span>
     <h2 id="panel-title">Depo Şeması</h2>
@@ -451,6 +493,7 @@ canvas { display: block; outline: none; }
   </div>
   <div class="control-group">
     <button id="btn-bypass" class="warm" title="Bypass vanasını aç/kapa"><span class="ico">⇄</span> <span id="bypass-label">Bypass: KAPALI</span></button>
+    <button id="btn-labels" title="Etiketleri gizle/göster"><span class="ico">⊙</span> <span id="labels-label">Etiketler</span></button>
   </div>
   <div class="control-group">
     <button id="btn-rotate" title="Otomatik döndür"><span class="ico">↻</span> Döndür</button>
@@ -490,7 +533,7 @@ const COMPONENTS = {
     n: '03', title: 'Dolma Hatları',
     role: 'Giriş Boruları (×2)',
     color: '#4fb5ff',
-    desc: 'Her havuzluk bölmesinin <strong>kendi dolma hattı</strong> bulunur. İsale hattından gelen su manevra odasının üst sırasındaki hattan geçer ve havuzluğa <strong>ön-alt kottan</strong> (dip savak yönünden) girer; içeride dikey kolonla max su seviyesinin üstüne yükselip <strong>açık dökülümle</strong> boşalır (krepe yöntemi — hava kilitlenmesini önler). Sıralama: <code>vana → demontaj → debimetre → motorlu akış ayar vanası → bypass tee</code>.',
+    desc: 'Her havuzluk bölmesinin <strong>kendi dolma hattı</strong> bulunur. İsale hattından gelen su, manevra odasının <strong>ön duvarından</strong> diğer hatlarla aynı yönde girer; ön duvar yakınında <code>vana → demontaj → debimetre → motorlu akış ayar vanası</code> sırasıyla geçer; sonra manevra arka duvarından sızdırmazlık flanşıyla havuzluğa girer. Havuzluk içinde <strong>dikey kolon</strong> max su seviyesi üstüne çıkar ve <strong>açık dökülümle</strong> boşalır (krepe yöntemi — hava kilitlenmesini önler).',
     specs: [['Adet', '2'], ['Sıra', 'V→DM→F→V_mot']],
     src: 'Şartname Madde 4.10-a'
   },
@@ -544,9 +587,9 @@ const COMPONENTS = {
   },
   bypass: {
     n: '10', title: 'Bypass Hattı',
-    role: 'Bölmeler Arası Geçiş',
+    role: 'İki Bölme Arası Su Aktarımı',
     color: '#ffb547',
-    desc: '<strong>D1 ve D2 dolma hatlarını</strong> birbirine bağlayan, tek bir vanayla (V_BP) açılıp kapatılan ek hat. T1A ↔ V_BP ↔ T2A. Bir bölme bakıma alındığında, diğer bölmenin dolma kaynağı bypass üzerinden hâlâ kullanılabilir; ya da bir hattan gelen suyla iki bölme aynı anda doldurulabilir. Şartname madde 3.5: "her türlü alternatife imkân verecek" gerekliliğini karşılar.',
+    desc: '<strong>İki havuzluk bölmesinin çıkış hatlarını</strong> manevra odasında birbirine bağlayan, tek bir vanayla (V_BP) açılıp kapatılan kollektör. T_BP_A ↔ V_BP ↔ T_BP_B. <strong>V_BP açıkken</strong>: bir bölmenin suyu, diğer bölmenin çıkış kollektörüne yönlendirilebilir (su aktarımı); ya da bir bölme servis dışıyken, diğerinin suyu her iki çıkış flanşından da basılabilir. Şartname madde 3.5: "her türlü alternatife imkân verecek" gerekliliğini karşılar.',
     specs: [['Vana', 'V_BP'], ['T-Bağ.', '2 adet']],
     src: 'Şartname Madde 3.5'
   },
@@ -1096,9 +1139,9 @@ const WEIR_Y = 3.6;
 const WATER_MAX = WEIR_Y - 0.05;
 
 // 3-katmanlı manevra odası boru kotları
-const Y_DOLMA  = 3.6;
-const Y_CIKIS  = 2.0;
-const Y_DIP    = 0.5;
+const Y_DOLMA  = 1.4;     // alt-orta sıra (zemine yakın)
+const Y_CIKIS  = 2.0;     // orta sıra
+const Y_DIP    = 0.5;     // alt sıra (taban+30cm — şartname madde 2-m)
 
 // Z koordinatları
 const Z_BACK_OUT = 0;                                         // ortak duvar dış yüzü (havuzluk tarafı)
@@ -1189,130 +1232,118 @@ crepinGroup.userData.id = 'krepin';
 }
 root.add(crepinGroup);
 // =====================================================================
-// DOLMA HATLARI D1 & D2 (üst sıra y=Y_DOLMA=3.6)
+// DOLMA HATLARI D1 & D2 (alt-orta sıra y=Y_DOLMA=1.4)
 //
-// Akış: dış giriş → sol/sağ duvar → V_manuel → DM → debimetre → V_motor
-//       → T_bypass → dik aşağı manevra içinde → havuzluğa alt-ön kottan
-//       → havuzluk içinde dikey kolon yukarı → açık dökülüm
+// Akış: dış giriş (manevra ön duvarı) → ön duvar geçişi → V_manuel → DM
+//       → debimetre → V_motor → manevra arka duvarına yatay → ortak duvar
+//       geçişi → havuzluk içinde dikey kolon yukarı → üst dirsek → açık dökülüm
 // =====================================================================
 const dolmaGroup = new THREE.Group();
 dolmaGroup.userData.id = 'dolma';
 
-// Bypass tee positions (paylaşılan)
-const T1A_POS = new THREE.Vector3(X_DOLMA_A, Y_DOLMA, 2.5);  // -3.5, 3.6, 2.5
-const T2A_POS = new THREE.Vector3(X_DOLMA_B, Y_DOLMA, 2.5);  //  3.5, 3.6, 2.5
-const VBP_POS = new THREE.Vector3(0, Y_DOLMA, 2.5);
-
 // Reference positions for flow display
-const flowMeters = []; // {anchor, tagName, displayObj, isOutlet, isInlet, chamber}
+const flowMeters = []; // {obj, tag, isInlet/isOutlet, chamber, lcd, vSpan, value, targetValue}
 
 function buildDolmaSide(side) {
-  // side = -1 (sol/T1) veya +1 (sağ/T2)
   const sgn = side;
-  const teePos = sgn < 0 ? T1A_POS : T2A_POS;
-  const xWallOuter = sgn * (MANEV_W / 2);            // dış duvar dış yüzü
-  const xWallInner = sgn * (MANEV_W / 2 - WALL_T);   // dış duvar iç yüzü
-  const xExtIn = sgn * (MANEV_W / 2 + 1.4);          // dış girişten önce ucu
+  const xMain = sgn < 0 ? X_DOLMA_A : X_DOLMA_B;
 
-  // Armatür x koordinatları (dış duvardan içeri doğru)
-  // sol için: -5.0 (duvar) → -4.7 V1A → -4.3 DM1 → -3.95 F1 → -3.65 V1B → -3.5 T1A
-  // sağ için mirror
-  const xV_man = sgn < 0 ? -4.7  :  4.7;
-  const xDM    = sgn < 0 ? -4.3  :  4.3;
-  const xF     = sgn < 0 ? -3.95 :  3.95;
-  const xV_mot = sgn < 0 ? -3.65 :  3.65;
+  // Armatür z koordinatları (ön duvardan iç tarafa doğru)
+  // Dış giriş ön duvar önünde
+  const z_inExt    = Z_FRONT + 1.4;
+  const z_wallOut  = Z_FRONT;
+  const z_wallIn   = Z_FRONT_IN;
+  const z_Vman     = Z_FRONT - 0.45;     // 3.55
+  const z_DM       = Z_FRONT - 0.95;     // 3.05
+  const z_F        = Z_FRONT - 1.5;      // 2.5  (5×D düz hat öncesi)
+  const z_Vmot     = Z_FRONT - 2.05;     // 1.95
+  const z_BackIn   = Z_BACK_IN;          // 0.18 — manevra arka duvar iç
+  const z_BackOut  = Z_BACK_OUT;         // 0    — ortak duvar dış (havuzluk yönü)
+  const z_HavIn    = Z_HAV_FRONT_IN;     // -0.18 — havuzluk ön duvar iç
 
-  // External arrow in
-  const inExt   = new THREE.Vector3(xExtIn,    Y_DOLMA, 2.5);
-  const wallOut = new THREE.Vector3(xWallOuter, Y_DOLMA, 2.5);
-  const wallIn  = new THREE.Vector3(xWallInner, Y_DOLMA, 2.5);
+  // 1) Manevra ÖN DUVARI dışından giriş (yatay, eksenel z)
+  dolmaGroup.add(pipeBetween(
+    new THREE.Vector3(xMain, Y_DOLMA, z_inExt),
+    new THREE.Vector3(xMain, Y_DOLMA, z_wallOut),
+    matPipeBlue
+  ));
+  dolmaGroup.add(makeFlange(
+    new THREE.Vector3(xMain, Y_DOLMA, z_wallOut),
+    new THREE.Vector3(0, 0, 1), matPipeBlue, 0.26
+  ));
 
-  dolmaGroup.add(pipeBetween(inExt, wallOut, matPipeBlue));
-  dolmaGroup.add(makeFlange(wallOut, new THREE.Vector3(1, 0, 0), matPipeBlue, 0.26));
-  dolmaGroup.add(pipeBetween(wallIn, new THREE.Vector3(xV_man, Y_DOLMA, 2.5), matPipeBlue));
-
-  // V manuel
-  const vMan = makeValve('x'); vMan.position.set(xV_man, Y_DOLMA, 2.5);
+  // 2) Ön duvar iç → V_manuel
+  dolmaGroup.add(pipeBetween(
+    new THREE.Vector3(xMain, Y_DOLMA, z_wallIn),
+    new THREE.Vector3(xMain, Y_DOLMA, z_Vman + 0.27),
+    matPipeBlue
+  ));
+  const vMan = makeValve('z'); vMan.position.set(xMain, Y_DOLMA, z_Vman);
   dolmaGroup.add(vMan);
 
-  // pipe between V_man and DM
+  // 3) V_manuel → DM
   dolmaGroup.add(pipeBetween(
-    new THREE.Vector3(sgn < 0 ? xV_man + 0.3 : xV_man - 0.3, Y_DOLMA, 2.5),
-    new THREE.Vector3(sgn < 0 ? xDM    - 0.18 : xDM    + 0.18, Y_DOLMA, 2.5),
+    new THREE.Vector3(xMain, Y_DOLMA, z_Vman - 0.27),
+    new THREE.Vector3(xMain, Y_DOLMA, z_DM + 0.18),
     matPipeBlue
   ));
-
-  // Demontaj
-  const dm = makeDemontaj('x', 0.32); dm.position.set(xDM, Y_DOLMA, 2.5);
+  const dm = makeDemontaj('z', 0.32); dm.position.set(xMain, Y_DOLMA, z_DM);
   dolmaGroup.add(dm);
 
-  // pipe between DM and F (10×D düz hat — boru çapı ~0.13, 10D~1.3 ama sembolik)
+  // 4) DM → F (10×D düz hat — sembolik)
   dolmaGroup.add(pipeBetween(
-    new THREE.Vector3(sgn < 0 ? xDM + 0.18 : xDM - 0.18, Y_DOLMA, 2.5),
-    new THREE.Vector3(sgn < 0 ? xF  - 0.30 : xF  + 0.30, Y_DOLMA, 2.5),
+    new THREE.Vector3(xMain, Y_DOLMA, z_DM - 0.18),
+    new THREE.Vector3(xMain, Y_DOLMA, z_F + 0.30),
     matPipeBlue
   ));
-
-  // F debimetre
   const tagName = sgn < 0 ? 'FIT-101' : 'FIT-102';
-  const fm = makeFlowMeter('x', tagName); fm.position.set(xF, Y_DOLMA, 2.5);
+  const fm = makeFlowMeter('z', tagName);
+  fm.position.set(xMain, Y_DOLMA, z_F);
   dolmaGroup.add(fm);
   flowMeters.push({ obj: fm, tag: tagName, isInlet: true, chamber: sgn < 0 ? 'A' : 'B' });
 
-  // pipe F → V_mot (5×D)
+  // 5) F → V_motor (5×D düz hat)
   dolmaGroup.add(pipeBetween(
-    new THREE.Vector3(sgn < 0 ? xF + 0.30 : xF - 0.30, Y_DOLMA, 2.5),
-    new THREE.Vector3(sgn < 0 ? xV_mot - 0.27 : xV_mot + 0.27, Y_DOLMA, 2.5),
+    new THREE.Vector3(xMain, Y_DOLMA, z_F - 0.30),
+    new THREE.Vector3(xMain, Y_DOLMA, z_Vmot + 0.27),
     matPipeBlue
   ));
-
-  // V motorlu
-  const vMot = makeMotorValve('x'); vMot.position.set(xV_mot, Y_DOLMA, 2.5);
+  const vMot = makeMotorValve('z'); vMot.position.set(xMain, Y_DOLMA, z_Vmot);
   dolmaGroup.add(vMot);
 
-  // V_mot → T_bypass
+  // 6) V_motor → manevra arka duvar iç yüzü
   dolmaGroup.add(pipeBetween(
-    new THREE.Vector3(sgn < 0 ? xV_mot + 0.27 : xV_mot - 0.27, Y_DOLMA, 2.5),
-    teePos,
+    new THREE.Vector3(xMain, Y_DOLMA, z_Vmot - 0.27),
+    new THREE.Vector3(xMain, Y_DOLMA, z_BackIn),
     matPipeBlue
   ));
 
-  // T_bypass elbow
-  dolmaGroup.add(elbow(teePos, matPipeBlue, 0.18));
+  // 7) Ortak duvar geçişi (sızdırmazlık flanşı)
+  dolmaGroup.add(makeSealFlange(
+    new THREE.Vector3(xMain, Y_DOLMA, 0), 'z'
+  ));
 
-  // ========= Tee'den havuzluğa kol =========
-  // T_pos'tan dik aşağı manevra içinde y=Y_DOLMA → y=Y_DIP
-  const teeDownEnd = new THREE.Vector3(teePos.x, Y_DIP, teePos.z);
-  dolmaGroup.add(pipeBetween(teePos, teeDownEnd, matPipeBlue));
-  dolmaGroup.add(elbow(teeDownEnd, matPipeBlue, 0.16));
-
-  // y=Y_DIP, yatay -z (havuzluğa)
-  const havEntryOut = new THREE.Vector3(teePos.x, Y_DIP, Z_BACK_OUT);   // ortak duvar dış yüzü
-  dolmaGroup.add(pipeBetween(teeDownEnd, havEntryOut, matPipeBlue));
-
-  // Sızdırmazlık flanşı
-  dolmaGroup.add(makeSealFlange(new THREE.Vector3(teePos.x, Y_DIP, Z_BACK_OUT - 0.04), 'z'));
-
-  // Havuzluk içinde — duvar iç yüzünden başlayarak dikey kolon yukarı
-  const havInside_low = new THREE.Vector3(teePos.x, Y_DIP, Z_HAV_FRONT_IN);
-  dolmaGroup.add(pipeBetween(havEntryOut, havInside_low, matPipeBlue));
+  // 8) Havuzluk ön duvar iç yüzünden başlayıp dikey kolon yukarı
+  const havInside_low = new THREE.Vector3(xMain, Y_DOLMA, z_HavIn);
+  dolmaGroup.add(pipeBetween(
+    new THREE.Vector3(xMain, Y_DOLMA, z_BackOut),
+    havInside_low, matPipeBlue
+  ));
   dolmaGroup.add(elbow(havInside_low, matPipeBlue, 0.16));
 
-  // Dikey kolon yukarı (max kot+0.4 üzerinde)
-  const colTop = new THREE.Vector3(teePos.x, WEIR_Y + 0.5, Z_HAV_FRONT_IN);
+  // 9) Havuzluk içinde dikey kolon yukarı (max kot+0.5 üzerinde)
+  const colTop = new THREE.Vector3(xMain, WEIR_Y + 0.5, z_HavIn);
   dolmaGroup.add(pipeBetween(havInside_low, colTop, matPipeBlue));
   dolmaGroup.add(elbow(colTop, matPipeBlue, 0.18));
 
-  // Üstte dirsek -z (havuzluk içine bakıyor)
-  const colTopForward = new THREE.Vector3(teePos.x, WEIR_Y + 0.5, Z_HAV_FRONT_IN - 0.5);
+  // 10) Üstte dirsek -z (havuzluk içine bakıyor)
+  const colTopForward = new THREE.Vector3(xMain, WEIR_Y + 0.5, z_HavIn - 0.6);
   dolmaGroup.add(pipeBetween(colTop, colTopForward, matPipeBlue));
   dolmaGroup.add(elbow(colTopForward, matPipeBlue, 0.18));
 
-  // Aşağı bakan açık dökülüm ucu
-  const spoutEnd = new THREE.Vector3(teePos.x, WEIR_Y + 0.05, Z_HAV_FRONT_IN - 0.5);
+  // 11) Aşağı bakan açık dökülüm
+  const spoutEnd = new THREE.Vector3(xMain, WEIR_Y - 0.05, z_HavIn - 0.6);
   dolmaGroup.add(pipeBetween(colTopForward, spoutEnd, matPipeBlue));
-
-  // Spout bell
   const bell = new THREE.Mesh(
     new THREE.CylinderGeometry(0.13, 0.20, 0.18, 16),
     matPipeBlue
@@ -1321,7 +1352,7 @@ function buildDolmaSide(side) {
   bell.castShadow = true;
   dolmaGroup.add(bell);
 
-  return { teePos, vMan, vMot, fm };
+  return { vMan, vMot, fm };
 }
 
 const dolmaA_parts = buildDolmaSide(-1);
@@ -1330,40 +1361,46 @@ const dolmaB_parts = buildDolmaSide(+1);
 root.add(dolmaGroup);
 
 // =====================================================================
-// BYPASS HATTI (T1A ↔ V_BP ↔ T2A)
+// BYPASS HATTI — İKİ BÖLME ARASI SU AKTARIMI
+// Çıkış C1 ve C2 hatları manevra odasında orta seviyede birbirine bağlanır.
+// T_BP_A (C1 hattında) ↔ V_BP (orta) ↔ T_BP_B (C2 hattında)
+// V_BP açıkken: bir bölmenin suyu, V_BP üzerinden diğer bölmenin çıkışına
+// (ya da kendi şebekesine) yönlendirilebilir → bölmeler arası su aktarımı.
 // =====================================================================
 const bypassGroup = new THREE.Group();
 bypassGroup.userData.id = 'bypass';
 
-let bypassOpen = false;     // başlangıçta kapalı
-let vBpMotor = null;        // motor mesh (LED renk değişimi için)
-let vBpHandleGroup = null;  // volan/handle dönüş için
+let bypassOpen = false;
+let vBpMotor = null;
+let vBpHandleGroup = null;
+
+const Y_BP   = Y_CIKIS;       // bypass çıkışla aynı kotta
+const Z_BP   = 2.55;          // V3B (z=2.05) sonrası, ön duvar (z=4.0) öncesi
+
+const T_BP_A = new THREE.Vector3(X_CREPIN_A, Y_BP, Z_BP);   // (-2.5, 2.0, 2.55)
+const T_BP_B = new THREE.Vector3(X_CREPIN_B, Y_BP, Z_BP);   // ( 2.5, 2.0, 2.55)
+const VBP_POS = new THREE.Vector3(0, Y_BP, Z_BP);
 
 {
-  // T1A → V_BP (sol kol)
-  const v_bp_left  = new THREE.Vector3(-0.35, Y_DOLMA, 2.5);
-  bypassGroup.add(pipeBetween(T1A_POS, v_bp_left, matPipeAmber));
+  // Tee marker'ları çıkış borularının üzerine
+  bypassGroup.add(elbow(T_BP_A, matPipeAmber, 0.16));
+  bypassGroup.add(elbow(T_BP_B, matPipeAmber, 0.16));
+
+  // T_BP_A → V_BP (sol kol)
+  const v_bp_left  = new THREE.Vector3(-0.35, Y_BP, Z_BP);
+  bypassGroup.add(pipeBetween(T_BP_A, v_bp_left, matPipeAmber));
 
   // V_BP merkez (motorlu kelebek vana)
   const vBP = makeMotorValve('x');
   vBP.position.copy(VBP_POS);
-  // LED'i bypass durumuna göre renklendireceğiz; varsayılan kırmızı
   bypassGroup.add(vBP);
   vBpMotor = vBP;
-  // Volan group (animasyon için x ekseni etrafında dönecek)
   vBpHandleGroup = vBP;
-
-  // V_BP → T2A (sağ kol)
-  const v_bp_right = new THREE.Vector3(0.35, Y_DOLMA, 2.5);
-  bypassGroup.add(pipeBetween(v_bp_right, T2A_POS, matPipeAmber));
-
-  // T2A elbow zaten dolmaGroup'ta yapıldı, ekstra yok
-  // T1A elbow zaten dolmaGroup'ta yapıldı
-
-  // V_BP'nin LED'ini bul ve referans tut
-  // (makeMotorValve içinde led 0.18, 0.55, 0.165 lokal pozisyonda)
-  // Çocuklarda renk değişikliği için referans tutalım:
   vBP.userData.role = 'bypassValve';
+
+  // V_BP → T_BP_B (sağ kol)
+  const v_bp_right = new THREE.Vector3(0.35, Y_BP, Z_BP);
+  bypassGroup.add(pipeBetween(v_bp_right, T_BP_B, matPipeAmber));
 }
 root.add(bypassGroup);
 // =====================================================================
@@ -1658,7 +1695,7 @@ bypassKnob.className = 'knob';
 bypassKnob.innerHTML = `<span class="led"></span><span class="lbl">BYPASS · KAPALI</span>`;
 bypassToggleEl.appendChild(bypassKnob);
 const bypassToggleObj = new CSS2DObject(bypassToggleEl);
-bypassToggleObj.position.set(0, Y_DOLMA + 1.0, 2.5);
+bypassToggleObj.position.set(0, Y_CIKIS + 0.7, Z_BP);
 root.add(bypassToggleObj);
 
 bypassKnob.addEventListener('click', (e) => {
@@ -1687,15 +1724,15 @@ function makeLabel(id, text, num, position) {
 
 const labelDefs = [
   ['havuzluk',   'Havuzluk Bölmeleri', '01', new THREE.Vector3(-2.5, 4.7, -2.5)],
-  ['manevra',    'Manevra Odası',      '02', new THREE.Vector3(0,    4.7,  2.0)],
-  ['dolma',      'Dolma Hatları',      '03', new THREE.Vector3(-3.5, 5.0,  2.5)],
-  ['cikis',      'Çıkış Hatları',      '04', new THREE.Vector3(-2.5, 2.0,  Z_FRONT + 1.5)],
+  ['manevra',    'Manevra Odası',      '02', new THREE.Vector3(3.0,  4.7,  2.0)],
+  ['dolma',      'Dolma Hatları',      '03', new THREE.Vector3(-3.5, 2.6,  Z_FRONT + 0.6)],
+  ['cikis',      'Çıkış Hatları',      '04', new THREE.Vector3(-2.5, 2.4,  Z_FRONT + 1.5)],
   ['tepeSavak',  'Tepe Savaklar',      '05', new THREE.Vector3(2.5,  3.7, -1.0)],
   ['dipSavak',   'Dip Savaklar',       '06', new THREE.Vector3(-1.5, 0.5,  Z_FRONT + 1.5)],
   ['tasma',      'Taşma Tahliyesi',    '07', new THREE.Vector3(0,    4.6,  Z_FRONT + 0.6)],
-  ['vanalar',    'Vanalar',            '08', new THREE.Vector3(4.0,  2.0,  2.5)],
-  ['debimetre',  'Debimetreler',       '09', new THREE.Vector3(-3.95, 4.3, 2.5)],
-  ['bypass',     'Bypass Hattı',       '10', new THREE.Vector3(0,    Y_DOLMA + 1.6, 2.5)],
+  ['vanalar',    'Vanalar',            '08', new THREE.Vector3(4.0,  2.6,  2.5)],
+  ['debimetre',  'Debimetreler',       '09', new THREE.Vector3(-3.95, 2.6, 2.5)],
+  ['bypass',     'Bypass Hattı',       '10', new THREE.Vector3(0,    Y_CIKIS + 1.5, Z_BP)],
   ['krepin',     'Krepinler',          '11', new THREE.Vector3(2.5,  1.1, -2.0)],
 ];
 
@@ -1832,13 +1869,16 @@ function updateFlowMeters(dt) {
   flowMeters.forEach((fm) => {
     let target = 0;
     if (fm.isInlet && filling) {
-      // Dolma debimetresi: dolum sırasında aktif
-      // Bypass açıkken: tek hat doldurma 2 bölmeye dağılır → debi azalır
-      target = bypassOpen ? 180 : 280;
-      target += Math.sin(performance.now() * 0.001 + (fm.chamber === 'A' ? 0 : 1)) * 25;
+      // Dolma: dolum sırasında aktif (bypass çıkışta, dolmayı etkilemez)
+      target = 280 + Math.sin(performance.now() * 0.001 + (fm.chamber === 'A' ? 0 : 1)) * 25;
     } else if (fm.isOutlet && draining) {
-      // Çıkış debimetresi: boşalım sırasında aktif
-      target = 240 + Math.sin(performance.now() * 0.0011 + (fm.chamber === 'A' ? 1 : 0)) * 20;
+      // Çıkış: boşalım sırasında aktif
+      // Bypass açıkken: iki çıkış kollektörü birleşir, debi dengelenir (paylaşılır)
+      if (bypassOpen) {
+        target = 200 + Math.sin(performance.now() * 0.0011 + (fm.chamber === 'A' ? 1 : 0)) * 15;
+      } else {
+        target = 240 + Math.sin(performance.now() * 0.0011 + (fm.chamber === 'A' ? 1 : 0)) * 20;
+      }
     } else {
       target = 0;
     }
@@ -1888,6 +1928,35 @@ document.getElementById('btn-bypass').addEventListener('click', () => {
 });
 document.getElementById('btn-rotate').addEventListener('click', () => {
   controls.autoRotate = !controls.autoRotate;
+});
+
+// Panel kapat/aç
+const panelEl = document.getElementById('panel');
+const panelToggleEl = document.getElementById('panel-toggle');
+const panelCloseEl = document.getElementById('panel-close');
+function setPanelOpen(open) {
+  panelEl.classList.toggle('collapsed', !open);
+  panelToggleEl.classList.toggle('visible', !open);
+}
+panelCloseEl.addEventListener('click', () => setPanelOpen(false));
+panelToggleEl.addEventListener('click', () => setPanelOpen(true));
+
+// Mobile: panel default kapalı
+if (window.innerWidth < 768) {
+  setPanelOpen(false);
+}
+
+// Etiketleri gizle/göster (3D pin labels)
+let labelsVisible = true;
+const btnLabels = document.getElementById('btn-labels');
+const labelsLabel = document.getElementById('labels-label');
+btnLabels.addEventListener('click', () => {
+  labelsVisible = !labelsVisible;
+  Object.values(labelObjects).forEach(({ el }) => {
+    el.classList.toggle('hidden', !labelsVisible);
+  });
+  labelsLabel.textContent = labelsVisible ? 'Etiketler' : 'Etiket Yok';
+  btnLabels.classList.toggle('on', !labelsVisible);
 });
 
 // Kesit toggle (manevra ön duvar opacity)
